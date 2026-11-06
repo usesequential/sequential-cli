@@ -420,7 +420,14 @@ test('M44: a 415 JSON-RPC error says update the CLI', async () => {
     assert.match(h.err.at(-1)!, /update the CLI/);
 });
 
-test('M46: the default timeout is 120 s, not less', async () => {
+test('M46: the default timeout is 120 s (the constant, on every Node)', async () => {
+    const { DEFAULT_TIMEOUT_MS } = await import('../src/transport');
+    assert.equal(DEFAULT_TIMEOUT_MS, 120_000);
+});
+
+// node:test's mock timers drive setTimeout reliably from Node 20.4; on 18 they are experimental and do not fire here.
+const MOCK_TIMERS_OK = Number(process.versions.node.split('.')[0]) >= 20;
+test('M46: a call with no answer gives up at 120 s, not before', { skip: !MOCK_TIMERS_OK && 'node:test mock timers need Node 20+' }, async () => {
     mock.timers.enable({ apis: ['setTimeout'] });
     try {
         const h = harness(never);
