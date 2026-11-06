@@ -511,3 +511,45 @@ describe('the sequential-release executable (build/src/release-bin.js)', () => {
         assert.ok(!r.stderr.includes(TOKEN.slice(7)) && !r.stdout.includes(TOKEN.slice(7)));
     });
 });
+
+// ---- independent review of PR #3 (wf_50c1df2a-979) ----
+describe('review fixes', () => {
+    test('sequential-release: a value may start with "--", and a repeated flag keeps its last value (as 0.2.x)', async () => {
+        const h = harness();
+        assert.equal(await runReleaseAlias(['--version', 'v1', '--title', '--no-verify cleanup', '--environment', 'staging', '--environment', 'production'], { SEQUENTIAL_RELEASES_TOKEN: TOKEN }, h.io), 0);
+        const a = h.sent();
+        assert.equal(a.title, '--no-verify cleanup');
+        assert.equal(a.environment, 'production');
+    });
+
+    test('sequential-release: --host only in a flag position; a value "--host=…" is a title, and the token stays home', async () => {
+        const h = harness();
+        assert.equal(await runReleaseAlias(['--version', 'v1', '--title', '--host=https://evil.example'], { SEQUENTIAL_RELEASES_TOKEN: TOKEN }, h.io), 0);
+        assert.equal(h.sent().title, '--host=https://evil.example');
+        assert.ok(h.seen.every((s) => s.url.startsWith('https://api.usesequential.com/')));
+    });
+
+    test('sequential-release: a non-default host is named on stderr', async () => {
+        const h = harness();
+        assert.equal(await runReleaseAlias(['--version', 'v'], { SEQUENTIAL_RELEASES_TOKEN: TOKEN, SEQUENTIAL_API_URL: 'https://seq.example.test' }, h.io), 0);
+        assert.deepEqual(h.err, ['sequential: sending the token to https://seq.example.test, not https://api.usesequential.com']);
+    });
+
+    test('--range honours --project-key: qualified trailers count, unqualified do not', async () => {
+        const h = harness({ git: () => 'Sequential-Finding: F-1, web#F-2\n' });
+        assert.equal(await main(rel('--version', 'v', '--range', 'a..b', '--project-key', 'web'), ENV, h.io), 0);
+        assert.deepEqual(h.sent().finding_ids, ['F-2']);
+    });
+
+    test('Ctrl-C during the GitHub reads: only "Cancelled.", never "the release is recorded …"', async () => {
+        const ctl = new AbortController();
+        const h = harness({ io: { signal: ctl.signal } });
+        h.io.fetch = (async (_u: string, init: { signal: AbortSignal }) => {
+            setImmediate(() => ctl.abort());
+            return new Promise((_, rej) => init.signal.addEventListener('abort', () => rej(Object.assign(new Error('aborted'), { name: 'AbortError' }))));
+        }) as unknown as FetchLike;
+        assert.equal(await main(rel(...GH_ARGS), { ...GH_ENV }, h.io), 1);
+        assert.ok(!h.err.join('\n').includes('is recorded'), h.err.join('|'));
+        assert.equal(h.calls().length, 0);
+    });
+});

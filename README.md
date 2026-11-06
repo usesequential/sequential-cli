@@ -200,16 +200,12 @@ head commit.
 
 ### `sequential-release` (the old `@usesequential/release-cli`)
 
-This package also installs `sequential-release`, so workflows that used the old CLI run unchanged:
-
-```
-sequential-release --version <v> [--environment <e>] [--commit-sha <sha>] [--released-at <iso>] [--title <t>]
-  [--range <prev..HEAD> | --github-changes [--base auto|<sha>]] [--project-key <key>] [--findings all|qualified] [--host <url>]
-```
-
-It is `sequential releases record` with the old rules: the token from `SEQUENTIAL_RELEASES_TOKEN` only (never
-`SEQUENTIAL_TOKEN`); the API from `--host` or `SEQUENTIAL_API_URL` (`https://`, or `http://` for `localhost` and
-`127.0.0.1` only); `--sha` is `--commit-sha`; exit 0 or 1 only; on success, only the `Recorded release …` line.
+The old command keeps working through `@usesequential/release-cli`, whose next version runs this package's
+`sequential releases record` (not published yet). The rules stay the old ones: the token from `SEQUENTIAL_RELEASES_TOKEN`
+only (never `SEQUENTIAL_TOKEN`); the API from `--host` or `SEQUENTIAL_API_URL` (`https://`, or `http://` for `localhost`
+and `127.0.0.1` only); `--sha` is `--commit-sha`; a value may start with `--`; a repeated flag keeps its last value; exit
+0 or 1 only; on success, only the `Recorded release …` line. Two things differ from 0.2.x: the API URL must be an origin
+(no path), and the token must be a project access token (`sq_pat_…`).
 
 ## See your tools
 

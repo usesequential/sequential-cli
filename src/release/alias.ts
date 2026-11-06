@@ -1,7 +1,9 @@
 // `sequential-release`: the old @usesequential/release-cli's bin, kept so its workflows run unchanged. It maps its flags
 // onto `sequential releases record` and runs the same path (cli.ts runNamed), with the old contract:
 // - the token from SEQUENTIAL_RELEASES_TOKEN only (never SEQUENTIAL_TOKEN, the changes token);
-// - the host from --host (anywhere in the line), else SEQUENTIAL_API_URL; https, or http only to this machine;
+// - the host from --host (anywhere in the line, in a flag position), else SEQUENTIAL_API_URL; an origin, https, or http
+//   only to this machine (the old CLI also took a path: now refused, and said so in the CHANGELOG);
+// - a value flag takes the next word whatever it is, and a repeated flag keeps its last value, as before;
 // - --sha is --commit-sha; no project is read from SEQUENTIAL_PROJECT or .sequential.json (--project only);
 // - exit 0 or 1, usage mistakes included; on success the old line only.
 import { runNamed, namedTimeout, tokenNamed, type Io } from '../cli';
@@ -18,24 +20,37 @@ SEQUENTIAL_RELEASES_TOKEN only and the API from --host or SEQUENTIAL_API_URL. --
 
 const NO_TOKEN = 'SEQUENTIAL_RELEASES_TOKEN is required: a project access token (sq_pat_…) with the releases:write scope, made for one project.';
 
-/** --host out of the line (the old CLI took it anywhere), --sha renamed. */
-function mapArgs(argv: readonly string[]): { host?: string; rest: string[] } {
-    let host: string | undefined;
+/** The old CLI's value flags: in a flag position each takes the NEXT word as its value, whatever it is (a title may start
+ *  with "--"), and a repeated flag keeps its last value, as the old parser did. --sha is --commit-sha. */
+const OLD_VALUE_FLAGS: Readonly<Record<string, string>> = {
+    '--version': 'version', '--environment': 'environment', '--commit-sha': 'commit-sha', '--sha': 'commit-sha', '--range': 'range',
+    '--released-at': 'released-at', '--title': 'title', '--base': 'base', '--project-key': 'project-key', '--findings': 'findings', '--host': 'host',
+};
+
+/** --host out of the line (the old CLI took it anywhere, in a flag position); old value flags as `--name=value`. */
+export function mapArgs(argv: readonly string[]): { host?: string; rest: string[] } {
+    const values = new Map<string, string>();
     const rest: string[] = [];
     for (let i = 0; i < argv.length; i++) {
         const a = argv[i];
-        if (a === '--host' || a.startsWith('--host=')) {
-            if (host !== undefined) throw new UsageError('--host is given twice');
-            if (a === '--host') {
-                if (argv[i + 1] === undefined || argv[i + 1].startsWith('--')) throw new UsageError('--host needs a URL');
-                host = argv[++i];
-            } else host = a.slice(7);
+        const eq = a.indexOf('=');
+        const name = a.startsWith('--') && eq > 0 ? a.slice(0, eq) : a;
+        const key = Object.hasOwn(OLD_VALUE_FLAGS, name) ? OLD_VALUE_FLAGS[name] : undefined;
+        if (key === undefined) {
+            rest.push(a);
             continue;
         }
-        if (a === '--sha') rest.push('--commit-sha');
-        else if (a.startsWith('--sha=')) rest.push(`--commit-sha=${a.slice(6)}`);
-        else rest.push(a);
+        let value: string;
+        if (eq > 0 && a.startsWith('--')) value = a.slice(eq + 1);
+        else {
+            if (i + 1 >= argv.length) throw new UsageError(`${name} needs a value`);
+            value = argv[++i];
+        }
+        values.set(key, value); // last one wins
     }
+    const host = values.get('host');
+    values.delete('host');
+    for (const [k, v] of values) rest.push(`--${k}=${v}`);
     return { host, rest };
 }
 

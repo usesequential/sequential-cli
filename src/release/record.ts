@@ -99,6 +99,9 @@ export async function gatherRelease(plan: ReleasePlan, io: ReleaseIo, env: Recor
         const note = read.base === null ? `; ${n} ${word} from ${head.slice(0, 7)} alone (no earlier release found)` : `; ${n} ${word} since ${read.base.slice(0, 7)}`;
         return { findingIds: read.findingIds, changes: read.changes, note };
     } catch (e) {
+        // Ctrl-C: nothing will be recorded, so the fallback line ("the release is recorded without …") would be untrue.
+        // The caller sees the abort and answers "Cancelled." alone.
+        if (opts.signal?.aborted) return { note: '' };
         const what = e instanceof GitHubError ? e.message : 'request failed';
         io.err(oneLine(`GitHub: could not ${what}; ${FALLBACK}`));
         return { note: '' };
