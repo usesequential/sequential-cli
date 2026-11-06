@@ -4,7 +4,7 @@
 // server's to check; the CLI checks only the shape of its own flags. Their lines are the old CLI's (@usesequential/node
 // 1.x), on a terminal or not; --json prints the answer instead.
 import { classifyToolResult, EXIT, UsageError, type ExitCode, type Fail } from './errors';
-import { oneLine, stripDeep } from './text';
+import { oneLine, stripDeep, ttySafeJson } from './text';
 import { PROTOCOL_VERSION, rpc, VERSION, getJson, type FetchLike } from './transport';
 
 export interface CuratedIo {
@@ -226,7 +226,7 @@ export async function runCurated(cmd: string, f: Flags, ctx: CuratedContext, io:
     }
     const answer = o.kind === 'json' ? o.value : { text: o.value };
     if (json) {
-        io.out(JSON.stringify(answer));
+        io.out(ctx.stdoutTTY ? ttySafeJson(JSON.stringify(answer)) : JSON.stringify(answer));
         return cmd === 'changes sync' ? syncExit(answer) : EXIT.ok;
     }
     if (cmd === 'changes sync') return syncLines(answer, io.out, io.err);
@@ -267,7 +267,7 @@ export async function whoami(ctx: CuratedContext & { token: string }, io: Curate
     // The client name on the token's row (best effort: a failure here changes nothing).
     await rpc(io.fetch, { host: ctx.host, token: ctx.token, readonly: false, method: 'initialize', params: { protocolVersion: PROTOCOL_VERSION, capabilities: {}, clientInfo: { name: 'Sequential CLI', version: VERSION } }, signal: io.signal }).catch(() => undefined);
     if (json) {
-        io.out(JSON.stringify(b));
+        io.out(ctx.stdoutTTY ? ttySafeJson(JSON.stringify(b)) : JSON.stringify(b));
         return EXIT.ok;
     }
     const slug = b.project_slug && typeof b.project_slug === 'object' ? str((b.project_slug as { id?: unknown }).id) : undefined;

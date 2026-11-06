@@ -75,7 +75,7 @@ async function namedCommand(name: string, rest: readonly string[], hostFlag: str
     const t = f.get('timeout')?.[0];
     if (t !== undefined && (!/^\d+$/.test(t) || Number(t) < 1)) throw new UsageError('--timeout must be whole seconds, 1 or more');
     const timeoutMs = t === undefined ? undefined : Number(t) * 1000;
-    if (name === 'whoami') return whoami({ host, token: tok!.token, timeoutMs }, io, f.has('json'));
+    if (name === 'whoami') return whoami({ host, token: tok!.token, timeoutMs, stdoutTTY: io.stdoutTTY }, io, f.has('json'));
     const chosen = chooseProject(f.get('project')?.[0], env, io.projectFs);
     for (const w of chosen.warnings) io.err(`sequential: ${oneLine(w)}`);
     if (!dry && !f.has('json')) io.err(`sequential: ${name} on ${chosen.project ? `project ${oneLine(chosen.project)}${chosen.from ? ` (from ${oneLine(chosen.from)})` : ''}` : "the token's project"}`);
