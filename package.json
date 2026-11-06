@@ -1,0 +1,42 @@
+{
+    "name": "@usesequential/cli",
+    "version": "0.1.0",
+    "description": "The Sequential command line: record changes and releases from any CI or shell, and call every Sequential agent tool from scripts.",
+    "keywords": [
+        "sequential",
+        "cli",
+        "session replay",
+        "analytics",
+        "mcp",
+        "release",
+        "changes"
+    ],
+    "homepage": "https://www.usesequential.com/docs",
+    "license": "MIT",
+    "type": "commonjs",
+    "bin": {
+        "sequential": "dist/bin.js"
+    },
+    "files": [
+        "dist",
+        "README.md",
+        "LICENSE",
+        "CHANGELOG.md"
+    ],
+    "engines": {
+        "node": ">=18"
+    },
+    "sideEffects": false,
+    "scripts": {
+        "build": "node scripts/build.cjs",
+        "typecheck": "tsc -p tsconfig.json --noEmit",
+        "test": "tsc -p tsconfig.json && node scripts/test.cjs",
+        "smoke": "node scripts/smoke.cjs",
+        "prepublishOnly": "node scripts/build.cjs && node scripts/smoke.cjs"
+    },
+    "dependencies": {},
+    "devDependencies": {
+        "@types/node": "22.20.4",
+        "typescript": "5.7.3"
+    }
+}
