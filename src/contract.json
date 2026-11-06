@@ -22,5 +22,7 @@
         "scopes",
         "expires_at",
         "last4"
-    ]
+    ],
+    "finding_ids_max": 50,
+    "changes_max": 50
 }
