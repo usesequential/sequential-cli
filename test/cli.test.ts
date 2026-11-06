@@ -614,3 +614,20 @@ test('PROJECT: from .sequential.json it is sent, and its path is printed', async
     assert.equal(h.calls()[0].body.params!.arguments!.project, 'web');
     assert.match(h.err.join('\n'), /project web \(from \/h\/repo\/\.sequential\.json\)/);
 });
+
+// ---- review findings (wf_04ebca3d-048) ----
+test('call <tool> --help prints the tool and sends no call, even with --yes', async () => {
+    const h = harness(() => ok({}));
+    assert.equal(await main(['call', 'record_change', '--help', '--yes'], ENV, h.io), 0);
+    assert.equal(h.calls().length, 0);
+    assert.match(h.out.join('\n'), /record_change/);
+});
+
+test('a project in --input wins over SEQUENTIAL_PROJECT; it and --project must agree', async () => {
+    const h = harness(() => ok({}), { readJson: () => ({ kind: 'pricing', title: 'x', project: 'web' }) });
+    assert.equal(await main(['call', 'record_change', '--input', 'c.json', '--yes'], { ...ENV, SEQUENTIAL_PROJECT: 'other' }, h.io), 0);
+    assert.equal(h.calls()[0].body.params!.arguments!.project, 'web');
+    const h2 = harness(() => ok({}), { readJson: () => ({ kind: 'pricing', title: 'x', project: 'web' }) });
+    assert.equal(await main(['call', 'record_change', '--input', 'c.json', '--project', 'shop', '--yes'], ENV, h2.io), 2);
+    assert.equal(h2.calls().length, 0);
+});

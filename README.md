@@ -19,6 +19,32 @@ one project.
 - The CLI never prints the token and never writes it to disk.
 - A server key (`sqs_…`) sends events. It cannot call tools.
 
+## Record changes and releases (CI and scripts)
+
+These commands send ONE request each and print one line per result, on a terminal or not. `--json` prints Sequential's
+answer instead. `--dry-run` prints what would be sent, needs no token, and sends nothing.
+
+```sh
+# One change: a campaign, a price, a product change
+sequential changes record --kind pricing --title "Trial is now 14 days"
+
+# A batch from a JSON array, once per CI run (one request, never split)
+sequential changes sync --items changes.json --source git --source-detail acme.shop
+
+# A release, which Sequential measures fixes against (a release token: SEQUENTIAL_RELEASES_TOKEN, else SEQUENTIAL_TOKEN)
+sequential releases record --version "$APP_VERSION"
+
+# What this token is: its project, rights and expiry
+sequential whoami
+```
+
+- The "CLI and CI" token preset holds what these need: changes:read, changes:write and releases:write.
+- Leave `--environment` out of `releases record`: the release then takes your project's environment, the one where fixes
+  are measured. Name the version exactly as your app's events carry it.
+- A title that reads like an instruction is kept as a proposal. The CLI prints the link where a person confirms it.
+- `sequential help <command>` lists every option. Sequential checks the values: `sequential tools describe record_change`
+  shows the kinds and limits.
+
 ## See your tools
 
 ```sh
@@ -46,7 +72,7 @@ sequential call record_change --kind pricing --title "Trial is now 14 days" --ye
 
 The CLI checks the argument types from the tool's schema. Sequential checks the rest.
 
-## Output
+## Output of `call` and `tools`
 
 - On a terminal, the answer is printed as readable JSON.
 - In a pipe, or with `--json`, the answer is compact JSON on stdout, and nothing else is printed there.
@@ -61,7 +87,8 @@ characters from it.
 |---|---|
 | 0 | Done |
 | 1 | Sequential refused the call, or was not reached |
-| 2 | A usage mistake (an unknown flag, a missing argument, no token) |
+| 2 | A usage mistake (an unknown flag, a missing argument, no token, a project that is not the token's) |
+| 3 | `changes sync`: some changes were refused (each is printed with why) |
 | 4 | The token cannot do this (its rights, or the feature is off for the project) |
 | 5 | Try again later. The wait in seconds is printed (`retry_after_sec`) |
 
