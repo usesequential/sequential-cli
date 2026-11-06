@@ -7,7 +7,7 @@ import { oneLine, stripControls, stripDeep, ttySafeJson } from './text';
 import { readToolList, type ToolInfo } from './tools';
 import { apiHost, CLI_VERSION, DEFAULT_HOST, rpc, type FetchLike } from './transport';
 import { readCache, writeCache } from './cache';
-import { chooseProject, type ProjectFs } from './project';
+import { chooseProject, type ProjectChoice, type ProjectFs } from './project';
 import { parseCurated, runCurated, whoami, tokenSelf } from './curated';
 import { COMMAND_HELP, HELP } from './help';
 
@@ -24,6 +24,10 @@ export interface Io {
     readJson?: (path: string) => Record<string, unknown>;
     /** changes sync --items: the text of a file, or stdin for '-'. */
     readText?: (path: string) => string;
+    /** releases record --range: `git <args>`'s stdout (child_process.execFileSync in the bin). */
+    git?: (args: readonly string[]) => string;
+    /** releases record --github-changes: the text of GITHUB_EVENT_PATH. */
+    readFile?: (path: string) => string;
     signal?: AbortSignal;
     /** The tool-list cache directory; null or absent = no cache (tests). */
     cacheDir?: string | null;
@@ -38,7 +42,7 @@ const PAT = /^sq_pat_[0-9A-Za-z]{32}$/;
  *  is the whole list (a new paid tool fails it), so the CLI does not drift from the server. */
 export const PAID_READS: ReadonlySet<string> = new Set(['ask_sessions']);
 
-function tokenNamed(env: Record<string, string | undefined>, names: readonly string[] = ['SEQUENTIAL_TOKEN'], scope?: string): { token: string; name: string } {
+export function tokenNamed(env: Record<string, string | undefined>, names: readonly string[] = ['SEQUENTIAL_TOKEN'], scope?: string): { token: string; name: string } {
     const name = names.find((n) => env[n]?.trim()) ?? names[names.length - 1];
     const t = env[name]?.trim();
     const needs = scope ? ` with ${scope}` : '';
@@ -72,14 +76,33 @@ async function namedCommand(name: string, rest: readonly string[], hostFlag: str
     const dry = f.has('dry-run');
     const tok = dry ? undefined : tokenNamed(env, name === 'releases record' ? ['SEQUENTIAL_RELEASES_TOKEN', 'SEQUENTIAL_TOKEN'] : ['SEQUENTIAL_TOKEN'], NEEDS[name]);
     const host = dry ? (() => { try { return apiHost(hostFlag ?? env.SEQUENTIAL_HOST); } catch (e) { throw new UsageError((e as Error).message); } })() : hostFrom(io, hostFlag, env);
-    const t = f.get('timeout')?.[0];
-    if (t !== undefined && (!/^\d+$/.test(t) || Number(t) < 1)) throw new UsageError('--timeout must be whole seconds, 1 or more');
-    const timeoutMs = t === undefined ? undefined : Number(t) * 1000;
+    const timeoutMs = namedTimeout(f);
     if (name === 'whoami') return whoami({ host, token: tok!.token, timeoutMs, stdoutTTY: io.stdoutTTY }, io, f.has('json'));
     const chosen = chooseProject(f.get('project')?.[0], env, io.projectFs);
+    return runNamed(name, f, { host, tok, chosen, timeoutMs }, env, io);
+}
+
+/** --timeout of a named command, in ms. */
+export function namedTimeout(f: ReturnType<typeof parseCurated>): number | undefined {
+    const t = f.get('timeout')?.[0];
+    if (t !== undefined && (!/^\d+$/.test(t) || Number(t) < 1)) throw new UsageError('--timeout must be whole seconds, 1 or more');
+    return t === undefined ? undefined : Number(t) * 1000;
+}
+
+/** A named write once its host, token and project are known: the `sequential` bin and the `sequential-release` alias
+ *  (legacy: the old CLI's lines only) run the same path from here. */
+export async function runNamed(
+    name: string,
+    f: ReturnType<typeof parseCurated>,
+    s: { host: string; tok?: { token: string; name: string }; chosen: ProjectChoice; timeoutMs?: number; legacy?: boolean },
+    env: Record<string, string | undefined>,
+    io: Io,
+): Promise<ExitCode> {
+    const { host, tok, chosen, timeoutMs } = s;
+    const dry = f.has('dry-run');
     for (const w of chosen.warnings) io.err(`sequential: ${oneLine(w)}`);
-    if (!dry && !f.has('json')) io.err(`sequential: ${name} on ${chosen.project ? `project ${oneLine(chosen.project)}${chosen.from ? ` (from ${oneLine(chosen.from)})` : ''}` : "the token's project"}`);
-    const code = await runCurated(name, f, { host, token: tok?.token, project: chosen.project, timeoutMs, stdoutTTY: io.stdoutTTY }, io, async (fail) => {
+    if (!dry && !f.has('json') && !s.legacy) io.err(`sequential: ${name} on ${chosen.project ? `project ${oneLine(chosen.project)}${chosen.from ? ` (from ${oneLine(chosen.from)})` : ''}` : "the token's project"}`);
+    const code = await runCurated(name, f, { host, token: tok?.token, project: chosen.project, timeoutMs, stdoutTTY: io.stdoutTTY, env, legacy: s.legacy }, io, async (fail) => {
         if (fail.code === 'project_not_in_connection' && tok) {
             io.err(await mismatchLine(io, host, tok.token, chosen.project, chosen.from));
             return EXIT.usage;

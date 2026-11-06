@@ -75,13 +75,30 @@ against. Name the version exactly as your app's events carry it (the web SDK's r
 
   --version <version>    required
   --environment <name>   default: the project's environment, the one where fixes are measured. Leave it out.
-  --commit-sha <sha>
+  --commit-sha <sha>     the deployed commit
   --released-at <time>   a date-time with Z or an offset (default: now)
+  --title <text>         what shipped, in one line
   --finding <F-n>        a case this release fixes (can be given again). Recording the release again keeps the cases
                          it already names.
-${COMMON_NAMED}
 
-Token: SEQUENTIAL_RELEASES_TOKEN, else SEQUENTIAL_TOKEN, with releases:write.`,
+Cases and changes from git or GitHub (use one of --range and --github-changes):
+  --range <prev..HEAD>   read \`Sequential-Finding: F-12\` trailers from \`git log\` in this checkout (fetch-depth: 0).
+                         An all-zero base (a first push) reads the head commit alone.
+  --github-changes       read the GitHub API with GITHUB_TOKEN (GITHUB_REPOSITORY, GITHUB_EVENT_PATH; GITHUB_API_URL
+                         for GitHub Enterprise): the merged pull requests since the previous release become its
+                         changes, and "Fixes F-12" in their titles and bodies, and trailers, name its cases. Needs
+                         --commit-sha. When GitHub fails, one line says so and the release is recorded without them.
+  --base auto|<sha>      with --github-changes: the previous release's commit (default auto: the previous successful
+                         deployment in the same GitHub environment, or a push's before)
+  --project-key <key>    in a monorepo: only "Fixes <key>#F-12" counts for this release
+  --findings all|qualified   whether an unqualified F-12 counts (default: all without --project-key, else qualified)
+  These ids are sent after the --finding ones, each once, at most 50; at most 50 changes.
+${COMMON_NAMED}
+  With --dry-run, git and GitHub are still read; nothing is sent to Sequential.
+
+Prints the stored release, then \`Recorded release <version> (<n> findings: F-1, F-4; <m> changes since <base>)\`.
+Token: SEQUENTIAL_RELEASES_TOKEN, else SEQUENTIAL_TOKEN, with releases:write. The old \`sequential-release\` command
+is installed too: the same, with SEQUENTIAL_RELEASES_TOKEN only and exit 0 or 1.`,
     whoami: `Usage: sequential whoami [--json] [--timeout <seconds>]
 
 Prints what the token in SEQUENTIAL_TOKEN is: a project access token, its project, its rights, when it expires and its

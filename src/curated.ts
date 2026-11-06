@@ -6,22 +6,29 @@
 import { classifyToolResult, EXIT, UsageError, type ExitCode, type Fail } from './errors';
 import { oneLine, stripDeep, ttySafeJson } from './text';
 import { PROTOCOL_VERSION, rpc, VERSION, getJson, type FetchLike } from './transport';
+import { addIds } from './release/findings';
+import type { GitHubFetch } from './release/github';
+import { gatherRelease, planRelease, successLine, type Gathered } from './release/record';
 
 export interface CuratedIo {
     fetch: FetchLike;
     out: (line: string) => void;
     err: (line: string) => void;
     readText?: (path: string) => string;
+    /** releases record --range: `git <args>`'s stdout. */
+    git?: (args: readonly string[]) => string;
+    /** releases record --github-changes: the text of GITHUB_EVENT_PATH. */
+    readFile?: (path: string) => string;
     signal?: AbortSignal;
 }
 
 type Flags = Map<string, string[]>;
-const SWITCHES = new Set(['dry-run', 'json', 'help', 'atomic']);
+const SWITCHES = new Set(['dry-run', 'json', 'help', 'atomic', 'github-changes']);
 const REPEATABLE = new Set(['pr', 'commit', 'link', 'finding']);
 const TAKES: Record<string, ReadonlySet<string>> = {
     'changes record': new Set(['kind', 'title', 'summary', 'importance', 'occurrence', 'start', 'end', 'version', 'environment', 'external-id', 'pr', 'commit', 'link', 'source', 'source-detail', 'project', 'timeout']),
     'changes sync': new Set(['items', 'source', 'source-detail', 'covered-from', 'covered-through', 'atomic', 'project', 'timeout']),
-    'releases record': new Set(['version', 'environment', 'commit-sha', 'released-at', 'finding', 'project', 'timeout']),
+    'releases record': new Set(['version', 'environment', 'commit-sha', 'released-at', 'finding', 'title', 'range', 'github-changes', 'base', 'project-key', 'findings', 'project', 'timeout']),
     whoami: new Set(['timeout']),
 };
 const COMMON = new Set(['dry-run', 'json', 'help']);
@@ -118,8 +125,10 @@ export function syncArgs(f: Flags, text: string): Record<string, unknown> {
     return a;
 }
 
-/** record_release's arguments. */
-export function releaseArgs(f: Flags): Record<string, unknown> {
+/** record_release's arguments. `from`: what --range or --github-changes read. Its finding ids are sent after the --finding
+ *  flags, deduplicated, up to the server's cap (the flags alone are sent as given: Sequential checks them); its changes go
+ *  in `changes`. */
+export function releaseArgs(f: Flags, from: Omit<Gathered, 'note'> = {}): Record<string, unknown> {
     const version = one(f, 'version');
     if (!version) throw new UsageError('--version is required');
     const a: Record<string, unknown> = { version };
@@ -127,10 +136,28 @@ export function releaseArgs(f: Flags): Record<string, unknown> {
         const v = one(f, flag);
         if (v !== undefined) a[key] = v;
     }
-    const findings = f.get('finding') ?? [];
+    const title = one(f, 'title');
+    if (title) a.title = title;
+    let findings = f.get('finding') ?? [];
+    if (from.findingIds?.length) {
+        findings = [...new Set(findings)];
+        addIds(findings, new Set(findings), from.findingIds);
+    }
     if (findings.length) a.finding_ids = findings;
+    if (from.changes?.length) a.changes = from.changes;
     return a;
 }
+
+/** The release flags as the git/GitHub plan reads them. */
+const releaseFlags = (f: Flags) => ({
+    version: one(f, 'version'),
+    commitSha: one(f, 'commit-sha'),
+    range: one(f, 'range'),
+    githubChanges: f.has('github-changes'),
+    base: one(f, 'base'),
+    projectKey: one(f, 'project-key'),
+    findings: one(f, 'findings'),
+});
 
 const WORD = /^[a-z_]{1,40}$/;
 const ID = /^[A-Za-z0-9_-]{1,64}$/;
@@ -185,16 +212,34 @@ function syncLines(answer: unknown, out: (l: string) => void, err: (l: string) =
     return refused > 0 ? EXIT.partial : EXIT.ok;
 }
 
-export interface CuratedContext { host: string; token?: string; project?: string; timeoutMs?: number; stdoutTTY?: boolean }
+export interface CuratedContext {
+    host: string;
+    token?: string;
+    project?: string;
+    timeoutMs?: number;
+    stdoutTTY?: boolean;
+    /** releases record --github-changes: GITHUB_TOKEN, GITHUB_REPOSITORY, GITHUB_API_URL, GITHUB_EVENT_PATH. */
+    env?: Record<string, string | undefined>;
+    /** sequential-release (the old bin): releases record prints the old CLI's success line only. */
+    legacy?: boolean;
+}
 
 /** Runs one named command after the flags parsed. The token is checked by the caller (not needed for --dry-run). */
 export async function runCurated(cmd: string, f: Flags, ctx: CuratedContext, io: CuratedIo, onFail?: (fail: Fail) => Promise<ExitCode | undefined>): Promise<ExitCode> {
     const json = f.has('json');
     const tool = cmd === 'changes record' ? 'record_change' : cmd === 'changes sync' ? 'record_changes' : 'record_release';
     let args: Record<string, unknown>;
+    let note = '';
     if (cmd === 'changes record') args = changeArgs(f);
-    else if (cmd === 'releases record') args = releaseArgs(f);
-    else {
+    else if (cmd === 'releases record') {
+        // Every flag is checked before git runs or GitHub is read (--dry-run too: it reads them, and sends nothing to
+        // Sequential).
+        const plan = planRelease(releaseFlags(f));
+        const got = await gatherRelease(plan, { fetch: io.fetch as unknown as GitHubFetch, err: io.err, git: io.git, readFile: io.readFile }, ctx.env ?? {}, { timeoutMs: ctx.timeoutMs, signal: io.signal });
+        if (io.signal?.aborted) return failOut(io, { exit: EXIT.refused, code: 'cancelled', message: 'Cancelled.' }, json);
+        args = releaseArgs(f, got);
+        note = got.note;
+    } else {
         const path = one(f, 'items');
         if (path === undefined) throw new UsageError('changes sync needs --items <file|->');
         if (!io.readText) throw new UsageError('--items cannot be read here');
@@ -232,12 +277,16 @@ export async function runCurated(cmd: string, f: Flags, ctx: CuratedContext, io:
     if (cmd === 'changes sync') return syncLines(answer, io.out, io.err);
     const a = (answer ?? {}) as Record<string, unknown>;
     if (cmd === 'releases record') {
-        const rel = (a.release && typeof a.release === 'object' ? a.release : {}) as Record<string, unknown>;
-        const v = str(rel.version) ?? String(args.version);
-        io.out(oneLine(`recorded release ${v}`));
-        const env = str(rel.environment);
-        const at = str(rel.released_at);
-        if (env || at) io.out(oneLine(`environment ${env ?? '?'}, released at ${at ?? '?'}${Array.isArray(rel.finding_ids) ? `, names ${rel.finding_ids.length} case(s)` : ''}`));
+        if (!ctx.legacy) {
+            const rel = (a.release && typeof a.release === 'object' ? a.release : {}) as Record<string, unknown>;
+            const v = str(rel.version) ?? String(args.version);
+            io.out(oneLine(`recorded release ${v}`));
+            const env = str(rel.environment);
+            const at = str(rel.released_at);
+            if (env || at) io.out(oneLine(`environment ${env ?? '?'}, released at ${at ?? '?'}${Array.isArray(rel.finding_ids) ? `, names ${rel.finding_ids.length} case(s)` : ''}`));
+        }
+        // The old CLI's line (@usesequential/release-cli): what was sent, and what GitHub added.
+        io.out(successLine(String(args.version), Array.isArray(args.finding_ids) ? (args.finding_ids as string[]) : [], note));
         return EXIT.ok;
     }
     const outcome = str(a.outcome) && WORD.test(a.outcome as string) ? (a.outcome as string) : 'recorded';
