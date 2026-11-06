@@ -2,6 +2,7 @@
 // The `sequential` executable: runs cli.ts with this process's arguments, environment and terminal.
 import { readFileSync } from 'node:fs';
 import { createInterface } from 'node:readline';
+import { askYesNo } from './prompt';
 import { main } from './cli';
 import { UsageError } from './errors';
 import { defaultCacheDir } from './cache';
@@ -35,15 +36,7 @@ function readJson(p: string): Record<string, unknown> {
     return v as Record<string, unknown>;
 }
 
-function confirm(question: string): Promise<boolean> {
-    return new Promise((resolve) => {
-        const rl = createInterface({ input: process.stdin, output: process.stderr });
-        rl.question(question, (answer) => {
-            rl.close();
-            resolve(/^y(es)?$/i.test(answer.trim()));
-        });
-    });
-}
+const confirm = (question: string): Promise<boolean> => askYesNo(question, createInterface({ input: process.stdin, output: process.stderr }));
 
 const ctl = new AbortController();
 process.once('SIGINT', () => ctl.abort());

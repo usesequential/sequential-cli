@@ -3,7 +3,7 @@
 // Order inside a command: everything that decides WHERE the token goes (the host) is read before any request.
 import { bindCall } from './args';
 import { classifyToolResult, EXIT, UsageError, type ExitCode, type Fail } from './errors';
-import { oneLine, stripControls, stripDeep } from './text';
+import { oneLine, stripControls, stripDeep, ttySafeJson } from './text';
 import { readToolList, type ToolInfo } from './tools';
 import { apiHost, CLI_VERSION, DEFAULT_HOST, rpc, type FetchLike } from './transport';
 import { readCache, writeCache } from './cache';
@@ -68,7 +68,7 @@ function printFail(io: Io, f: Fail, json: boolean): ExitCode {
 }
 
 /** The token's tools: from the cache (10 min) unless `fresh`, else tools/list on /mcp (it lists writes and the stubs). */
-async function listTools(io: Io, host: string, token: string, fresh = false): Promise<{ tools: ToolInfo[]; cached: boolean } | Fail> {
+async function listTools(io: Io, host: string, token: string, fresh = false, timeoutMs?: number): Promise<{ tools: ToolInfo[]; cached: boolean } | Fail> {
     const dir = io.cacheDir ?? null;
     if (!fresh) {
         const hit = readCache(dir, host, token);
@@ -80,7 +80,7 @@ async function listTools(io: Io, host: string, token: string, fresh = false): Pr
             }
         }
     }
-    const r = await rpc(io.fetch, { host, token, readonly: false, method: 'tools/list', signal: io.signal });
+    const r = await rpc(io.fetch, { host, token, readonly: false, method: 'tools/list', timeoutMs, signal: io.signal });
     if (!r.ok) return r.fail;
     try {
         const tools = readToolList(r.result);
@@ -90,6 +90,9 @@ async function listTools(io: Io, host: string, token: string, fresh = false): Pr
         return { exit: EXIT.refused, code: 'bad_answer', message: 'Sequential sent a tool list this CLI cannot read: update the CLI.' };
     }
 }
+
+/** JSON on stdout: as is in a pipe; on a terminal with every control written as a \u escape (it parses the same). */
+const outJson = (io: Io, v: unknown): string => (io.stdoutTTY ? ttySafeJson(JSON.stringify(v)) : JSON.stringify(v));
 
 const isFail = (v: unknown): v is Fail => v !== null && typeof v === 'object' && 'exit' in v && 'code' in v;
 
@@ -170,7 +173,7 @@ async function toolsCommand(rest: readonly string[], hostFlag: string | undefine
     if (describe) {
         const t = list.find((x) => x.name === describe);
         if (!t) throw new UsageError(`this token has no tool ${describe}: see sequential tools`);
-        if (json) io.out(JSON.stringify({ name: t.name, title: t.title, description: t.description, write: t.write, enabled: !t.stub, inputSchema: t.inputSchema }));
+        if (json) io.out(outJson(io, { name: t.name, title: t.title, description: t.description, write: t.write, enabled: !t.stub, inputSchema: t.inputSchema }));
         else {
             io.out(`${s(t.name)}${t.title ? ` (${s(t.title)})` : ''}${t.write ? ': changes something' : ''}`);
             io.out('');
@@ -188,7 +191,7 @@ async function toolsCommand(rest: readonly string[], hostFlag: string | undefine
     const callable = list.filter((t) => !t.stub);
     const stubs = list.filter((t) => t.stub);
     if (json) {
-        io.out(JSON.stringify({ tools: callable.map((t) => ({ name: t.name, title: t.title, write: t.write || PAID_READS.has(t.name) })), not_enabled: stubs.map((t) => t.name) }));
+        io.out(outJson(io, { tools: callable.map((t) => ({ name: t.name, title: t.title, write: t.write || PAID_READS.has(t.name) })), not_enabled: stubs.map((t) => t.name) }));
         return EXIT.ok;
     }
     const w = Math.min(40, callable.reduce((m, t) => Math.max(m, t.name.length), 4));
@@ -203,7 +206,11 @@ async function toolsCommand(rest: readonly string[], hostFlag: string | undefine
 async function callCommand(rest: readonly string[], hostFlag: string | undefined, env: Record<string, string | undefined>, io: Io, json: boolean): Promise<ExitCode> {
     const token = tokenFrom(env);
     const host = hostFrom(io, hostFlag, env);
-    let got = await listTools(io, host, token, rest.includes('--refresh'));
+    // --timeout covers the tool-list request too. Read before binding (the list comes first); harmless: it decides no host.
+    const ti = rest.findIndex((w) => w === '--timeout' || w.startsWith('--timeout='));
+    const tv = ti < 0 ? undefined : rest[ti].includes('=') ? rest[ti].slice(10) : rest[ti + 1];
+    const listTimeout = tv !== undefined && /^\d+$/.test(tv) && Number(tv) >= 1 ? Number(tv) * 1000 : undefined;
+    let got = await listTools(io, host, token, rest.includes('--refresh'), listTimeout);
     if (isFail(got)) return printFail(io, got, json);
     let byName = new Map(got.tools.map((t) => [t.name, t]));
     let c;
@@ -213,7 +220,7 @@ async function callCommand(rest: readonly string[], hostFlag: string | undefined
     } catch (e) {
         // A tool or an argument the CACHED list does not know: ask the server once (a tool may have been added), then decide.
         if (!(e instanceof UsageError) || !got.cached) throw e;
-        got = await listTools(io, host, token, true);
+        got = await listTools(io, host, token, true, listTimeout);
         if (isFail(got)) return printFail(io, got, json);
         byName = new Map(got.tools.map((t) => [t.name, t]));
         c = bindCall(rest, (n) => byName.get(n), io.readJson);
@@ -238,12 +245,12 @@ async function callCommand(rest: readonly string[], hostFlag: string | undefined
             // Ask only on a terminal, and never when --input is given (stdin may be the input, under any path name).
             const canAsk = io.interactive && c.input === undefined && io.confirm !== undefined;
             if (!canAsk) throw new UsageError(`${tool.name} ${tool.write ? 'changes something' : 'spends the project’s paid budget'}: add --yes to run it`);
-            const ok = await io.confirm!(`Run ${tool.name} on ${oneLine(where)}? [y/N] `);
+            const ok = await io.confirm!(`Run ${oneLine(tool.name)} on ${oneLine(where)}? [y/N] `);
             if (!ok) {
                 io.err('sequential: nothing was done');
                 return EXIT.usage;
             }
-        } else io.err(`sequential: ${tool.name} on ${oneLine(where)}`);
+        } else io.err(`sequential: ${oneLine(tool.name)} on ${oneLine(where)}`);
     }
     const r = await rpc(io.fetch, { host, token, readonly: !tool.write, method: 'tools/call', params: { name: tool.name, arguments: args }, timeoutMs: c.timeoutSec ? c.timeoutSec * 1000 : undefined, signal: io.signal });
     if (!r.ok) {
@@ -257,7 +264,7 @@ async function callCommand(rest: readonly string[], hostFlag: string | undefined
         if (o.fail.code === 'project_not_in_connection') o.fail.exit = EXIT.usage;
         return printFail(io, o.fail, json || c.json);
     }
-    if (json || c.json) io.out(JSON.stringify(o.kind === 'text' ? { markdown: o.value } : o.value));
+    if (json || c.json) io.out(outJson(io, o.kind === 'text' ? { markdown: o.value } : o.value));
     else io.out(o.kind === 'text' ? stripControls(o.value) : JSON.stringify(stripDeep(o.value), null, 2));
     return EXIT.ok;
 }

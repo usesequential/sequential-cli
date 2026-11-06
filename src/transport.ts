@@ -10,7 +10,7 @@ export const DEFAULT_TIMEOUT_MS = 120_000;
 export const MAX_ANSWER_CHARS = 8 * 1024 * 1024;
 
 export interface FetchLike {
-    (url: string, init: { method: string; headers: Record<string, string>; body: string; redirect: 'error'; signal: AbortSignal }): Promise<{ status: number; text(): Promise<string>; headers?: { get(name: string): string | null } }>;
+    (url: string, init: { method: string; headers: Record<string, string>; body: string; redirect: 'error'; signal: AbortSignal }): Promise<{ status: number; text(): Promise<string>; headers?: { get(name: string): string | null }; body?: ReadableStream<Uint8Array> | null }>;
 }
 
 export interface RpcRequest {
@@ -52,10 +52,8 @@ export async function rpc(fetch: FetchLike, req: RpcRequest): Promise<HttpOutcom
             redirect: 'error',
             signal: ctl.signal,
         });
-        const length = Number(res.headers?.get('content-length') ?? '0');
-        if (length > MAX_ANSWER_CHARS) return { ok: false, fail: { exit: EXIT.refused, code: 'bad_answer', message: 'The answer is too large.' } };
-        const text = await res.text();
-        if (text.length > MAX_ANSWER_CHARS) return { ok: false, fail: { exit: EXIT.refused, code: 'bad_answer', message: 'The answer is too large.' } };
+        const text = await readCapped(res, ctl);
+        if (text === null) return { ok: false, fail: TOO_LARGE };
         return classifyHttp(res.status, text, { retryAfter: res.headers?.get('retry-after') ?? null, sentId: id });
     } catch {
         // Our own flag, never the error's name: on Node 18 undici may reject a timed-out fetch with a plain AbortError.
@@ -70,6 +68,37 @@ export async function rpc(fetch: FetchLike, req: RpcRequest): Promise<HttpOutcom
         clearTimeout(timer);
         req.signal?.removeEventListener('abort', onAbort);
     }
+}
+
+const TOO_LARGE: Fail = { exit: EXIT.refused, code: 'bad_answer', message: 'The answer is too large.' };
+
+/** The body as text, read in chunks and given up (the request aborted) once its DECODED bytes pass the cap: a chunked or
+ *  compressed answer (fetch decompresses; content-length is the packed size) can never fill memory. Null when too large. */
+export async function readCapped(res: { text(): Promise<string>; headers?: { get(name: string): string | null }; body?: ReadableStream<Uint8Array> | null }, ctl: AbortController, cap = MAX_ANSWER_CHARS): Promise<string | null> {
+    if (Number(res.headers?.get('content-length') ?? '0') > cap) {
+        ctl.abort();
+        return null;
+    }
+    if (!res.body) {
+        const t = await res.text();
+        return t.length > cap ? null : t;
+    }
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let size = 0;
+    let out = '';
+    for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        size += value.byteLength;
+        if (size > cap) {
+            await reader.cancel().catch(() => undefined);
+            ctl.abort();
+            return null;
+        }
+        out += decoder.decode(value, { stream: true });
+    }
+    return out + decoder.decode();
 }
 
 /** The API origin: https, or http only to this machine (a token never crosses a network in clear text). */

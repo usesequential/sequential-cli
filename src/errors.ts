@@ -18,6 +18,7 @@ export class UsageError extends Error {}
 
 const AUTH_STATUSES = new Set([401, 403]);
 const LATER_STATUSES = new Set([429, 503]);
+const GATEWAY_STATUSES = new Set([502, 503, 504]);
 
 function parseJson(text: string): unknown {
     try {
@@ -56,7 +57,11 @@ export function classifyHttp(status: number, text: string, opts: { retryAfter?: 
             const why = status === 406 || status === 415 ? 'Sequential refused this request format: update the CLI.' : 'Sequential refused the request.';
             return { ok: false, fail: { exit: EXIT.refused, code: `rpc_${code}`, message: why + said } };
         }
-        if ('result' in body) return { ok: true, result: body.result };
+        // Only an error may carry a null id (a refusal written before the transport read the request).
+        if ('result' in body) {
+            if (body.id === null || body.id === undefined) return { ok: false, fail: { exit: EXIT.refused, code: 'bad_answer', message: 'Sequential sent an answer this CLI cannot read: update the CLI.' } };
+            return { ok: true, result: body.result };
+        }
         return { ok: false, fail: { exit: EXIT.refused, code: 'bad_answer', message: 'Sequential sent an answer this CLI cannot read: update the CLI.' } };
     }
     if (isObj(body) && typeof body.error === 'string') {
@@ -66,6 +71,11 @@ export function classifyHttp(status: number, text: string, opts: { retryAfter?: 
         if (AUTH_STATUSES.has(status)) return { ok: false, fail: { exit: EXIT.auth, code, message } };
         if (LATER_STATUSES.has(status)) return { ok: false, fail: { exit: EXIT.later, code, message, ...(retry === undefined ? {} : { retryAfterSec: retry }) } };
         return { ok: false, fail: { exit: EXIT.refused, code, message } };
+    }
+    // A gateway in front of Sequential (502, 503, 504 with no JSON body: a deploy, an overloaded host): try later.
+    if (GATEWAY_STATUSES.has(status)) {
+        const retry = opts.retryAfter && /^\d{1,6}$/.test(opts.retryAfter.trim()) ? Number(opts.retryAfter.trim()) : undefined;
+        return { ok: false, fail: { exit: EXIT.later, code: 'unavailable', message: `Sequential is not answering right now (HTTP ${status}).`, ...(retry === undefined ? {} : { retryAfterSec: retry }) } };
     }
     return { ok: false, fail: { exit: EXIT.refused, code: 'not_reached', message: `Sequential was not reached (HTTP ${status}).` } };
 }

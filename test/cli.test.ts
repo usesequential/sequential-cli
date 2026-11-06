@@ -163,9 +163,12 @@ test('layer 2 (JSON-RPC error) → 1; HTML from a proxy → 1 "not reached"', as
     const h = harness(() => ({ status: 406, body: { jsonrpc: '2.0', id: 1, error: { code: -32000, message: 'Not Acceptable' } } }));
     assert.equal(await main(['call', 'list_findings'], ENV, h.io), 1);
     assert.match(h.err.at(-1)!, /update the CLI/);
-    const h2 = harness(() => ({ status: 502, body: '<html>Bad gateway</html>' }));
+    const h2 = harness(() => ({ status: 500, body: '<html>Server error</html>' }));
     assert.equal(await main(['call', 'list_findings'], ENV, h2.io), 1);
     assert.match(h2.err.at(-1)!, /not reached/);
+    // A gateway (502/503/504) with no JSON body is "try later" (mgmt review 11-06).
+    const h3 = harness(() => ({ status: 502, body: '<html>Bad gateway</html>' }));
+    assert.equal(await main(['call', 'list_findings'], ENV, h3.io), 5);
 });
 
 test('layer 3 (isError): busy with retry → 5; not available → 4; a sentence → 1; wrong project → 2', async () => {
