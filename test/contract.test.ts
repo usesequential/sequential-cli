@@ -6,6 +6,8 @@ import { PAID_READS } from '../src/cli';
 import { NOT_AVAILABLE } from '../src/errors';
 import { PROTOCOL_VERSION } from '../src/transport';
 import { VERSION } from '../src/version';
+import { MAX_FINDING_IDS } from '../src/release/findings';
+import { MAX_CHANGES } from '../src/release/github';
 
 // src/contract.json is what the server's repository vendors and pins; the code must say the same.
 const facts = JSON.parse(readFileSync(join(__dirname, '../../src/contract.json'), 'utf8')) as Record<string, unknown>;
@@ -21,4 +23,12 @@ test('the code says what contract.json says', () => {
     assert.ok(src('curated.ts').includes(`'${facts.token_self_path as string}'`));
     for (const t of facts.named_tools as string[]) assert.ok(src('curated.ts').includes(`'${t}'`) || src('cli.ts').includes(`'${t}'`), t);
     for (const k of facts.token_self_keys as string[]) assert.ok(src('curated.ts').includes(k), k);
+});
+
+test('the server caps the CLI keeps to (it reads ids and changes from git and GitHub) are contract.json\'s', () => {
+    // Not rules of the CLI's own: the server refuses a release over them. The server's repository pins the same values.
+    assert.equal(facts.finding_ids_max, 50);
+    assert.equal(facts.changes_max, 50);
+    assert.equal(MAX_FINDING_IDS, facts.finding_ids_max);
+    assert.equal(MAX_CHANGES, facts.changes_max);
 });
