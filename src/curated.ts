@@ -22,7 +22,7 @@ const TAKES: Record<string, ReadonlySet<string>> = {
     'changes record': new Set(['kind', 'title', 'summary', 'importance', 'occurrence', 'start', 'end', 'version', 'environment', 'external-id', 'pr', 'commit', 'link', 'source', 'source-detail', 'project', 'timeout']),
     'changes sync': new Set(['items', 'source', 'source-detail', 'covered-from', 'covered-through', 'atomic', 'project', 'timeout']),
     'releases record': new Set(['version', 'environment', 'commit-sha', 'released-at', 'finding', 'project', 'timeout']),
-    whoami: new Set([]),
+    whoami: new Set(['timeout']),
 };
 const COMMON = new Set(['dry-run', 'json', 'help']);
 
@@ -36,7 +36,8 @@ export function parseCurated(cmd: string, argv: readonly string[]): Flags {
         const eq = a.indexOf('=');
         const name = eq < 0 ? a.slice(2) : a.slice(2, eq);
         if (name === 'host') throw new UsageError('put --host before the command (sequential --host <url> …), or set SEQUENTIAL_HOST');
-        if (!takes.has(name) && !COMMON.has(name) && !(SWITCHES.has(name) && takes.has(name))) throw new UsageError(`${cmd} takes no --${name}`);
+        const common = COMMON.has(name) && !(cmd === 'whoami' && name === 'dry-run');
+        if (!takes.has(name) && !common) throw new UsageError(`${cmd} takes no --${name}`);
         if (SWITCHES.has(name)) {
             if (eq >= 0) throw new UsageError(`--${name} takes no value`);
             flags.set(name, ['true']);
@@ -143,19 +144,24 @@ export function refusalLine(f: Fail): string {
     const code = WORD.test(f.code) ? f.code : 'refused';
     const first = Array.isArray(d.errors) ? (d.errors[0] as { field?: unknown } | undefined) : undefined;
     const lead = !first && typeof f.message === 'string' ? /^([a-z_]{1,30}):/.exec(f.message)?.[1] : undefined;
-    const fv = first && typeof first === 'object' ? first.field : lead;
+    const fv = first && typeof first === 'object' ? first.field : typeof d.field === 'string' ? d.field : lead;
     const field = typeof fv === 'string' && FIELD.test(fv) ? ` (${fv})` : '';
+    const step = str(d.step) && WORD.test(d.step as string) ? ` ${d.step as string}` : '';
     const reason = str(d.reason) && WORD.test(d.reason as string) ? ` ${d.reason as string}` : '';
     const hint = reason && str(d.hint) && (d.hint as string).length <= 240 ? `: ${oneLine(d.hint as string)}` : '';
     const later = f.retryAfterSec === undefined ? '' : ` Try again in ${f.retryAfterSec} s.`;
     // A sentence refusal (record_release, argument checks) has no code: only its leading field word, never the rest.
     if (!f.detail) return f.exit === EXIT.refused && f.code === 'refused' ? `sequential: Sequential refused it${field}` : `sequential: ${oneLine(f.message)} (${code})${later}`;
-    return `sequential: ${code}${field}${reason}${hint}${later}`;
+    return `sequential: ${code}${step}${field}${reason}${hint}${later}`;
 }
 
-function syncLines(answer: unknown, out: (l: string) => void): ExitCode {
+/** A Sequential app link the CLI may print: https, one line, short. */
+const confirmLink = (v: unknown): string | undefined => (typeof v === 'string' && /^https:\/\/[^\s]{1,300}$/.test(v) ? v : undefined);
+
+function syncLines(answer: unknown, out: (l: string) => void, err: (l: string) => void): ExitCode {
     const items = (answer && typeof answer === 'object' && Array.isArray((answer as { items?: unknown }).items) ? (answer as { items: unknown[] }).items : []) as Array<Record<string, unknown>>;
     let refused = 0;
+    let proposed = 0;
     for (const it of items) {
         const index = typeof it.index === 'number' && Number.isInteger(it.index) ? it.index : '?';
         const outcome = str(it.outcome) && WORD.test(it.outcome as string) ? (it.outcome as string) : 'unknown';
@@ -164,19 +170,25 @@ function syncLines(answer: unknown, out: (l: string) => void): ExitCode {
             refused++;
             const step = str(it.step) && WORD.test(it.step as string) ? ` ${it.step as string}` : '';
             const field = str(it.field) && FIELD.test(it.field as string) ? ` (${it.field as string})` : '';
+            const error = str(it.error) && WORD.test(it.error as string) ? ` ${it.error as string}` : '';
             const reason = str(it.reason) && WORD.test(it.reason as string) ? ` ${it.reason as string}` : '';
             const hint = reason && str(it.hint) && (it.hint as string).length <= 240 ? `: ${oneLine(it.hint as string)}` : '';
-            out(`#${index} ${outcome}${step}${field}${reason}${hint}`);
-        } else out(`#${index} ${outcome}${id}`);
+            out(`#${index} ${outcome}${step}${field}${error}${reason}${hint}`);
+        } else {
+            if (outcome === 'proposed') proposed++;
+            out(`#${index} ${outcome}${id}`);
+        }
     }
-    out(`${items.length - refused} written, ${refused} refused`);
+    out(`${items.length - refused - proposed} written, ${proposed} proposed, ${refused} refused`);
+    const link = confirmLink((answer as { confirm_url?: unknown } | null)?.confirm_url);
+    if (proposed > 0 && link) err(`sequential: ${proposed} kept as a proposal; a person confirms them at ${oneLine(link)}`);
     return refused > 0 ? EXIT.partial : EXIT.ok;
 }
 
-export interface CuratedContext { host: string; token?: string; project?: string; timeoutMs?: number }
+export interface CuratedContext { host: string; token?: string; project?: string; timeoutMs?: number; stdoutTTY?: boolean }
 
 /** Runs one named command after the flags parsed. The token is checked by the caller (not needed for --dry-run). */
-export async function runCurated(cmd: string, f: Flags, ctx: CuratedContext, io: CuratedIo): Promise<ExitCode> {
+export async function runCurated(cmd: string, f: Flags, ctx: CuratedContext, io: CuratedIo, onFail?: (fail: Fail) => Promise<ExitCode | undefined>): Promise<ExitCode> {
     const json = f.has('json');
     const tool = cmd === 'changes record' ? 'record_change' : cmd === 'changes sync' ? 'record_changes' : 'record_release';
     let args: Record<string, unknown>;
@@ -197,7 +209,8 @@ export async function runCurated(cmd: string, f: Flags, ctx: CuratedContext, io:
     if (ctx.project !== undefined) args = { ...args, project: ctx.project };
     if (f.has('dry-run')) {
         io.out(`Would call ${tool} on ${ctx.host}/mcp with:`);
-        io.out(JSON.stringify(args, null, 2));
+        // On a terminal, the arguments are stripped of controls too (a title may hold anything).
+        io.out(JSON.stringify(ctx.stdoutTTY ? stripDeep(args) : args, null, 2));
         return EXIT.ok;
     }
     if (!ctx.token) throw new UsageError('no token');
@@ -207,13 +220,16 @@ export async function runCurated(cmd: string, f: Flags, ctx: CuratedContext, io:
         return failOut(io, r.fail, json);
     }
     const o = classifyToolResult(r.result);
-    if (!o.ok) return failOut(io, o.fail, json);
+    if (!o.ok) {
+        const handled = onFail ? await onFail(o.fail) : undefined;
+        return handled ?? failOut(io, o.fail, json);
+    }
     const answer = o.kind === 'json' ? o.value : { text: o.value };
     if (json) {
         io.out(JSON.stringify(answer));
         return cmd === 'changes sync' ? syncExit(answer) : EXIT.ok;
     }
-    if (cmd === 'changes sync') return syncLines(answer, io.out);
+    if (cmd === 'changes sync') return syncLines(answer, io.out, io.err);
     const a = (answer ?? {}) as Record<string, unknown>;
     if (cmd === 'releases record') {
         const rel = (a.release && typeof a.release === 'object' ? a.release : {}) as Record<string, unknown>;
@@ -227,8 +243,8 @@ export async function runCurated(cmd: string, f: Flags, ctx: CuratedContext, io:
     const outcome = str(a.outcome) && WORD.test(a.outcome as string) ? (a.outcome as string) : 'recorded';
     const id = str(a.change_id) && ID.test(a.change_id as string) ? ` ${a.change_id as string}` : '';
     io.out(`${outcome}${id}`);
-    const confirm = str(a.confirm_url);
-    if (confirm && /^https:\/\/[^\s]{1,300}$/.test(confirm)) io.err(`sequential: kept as a proposal; a person confirms it at ${oneLine(confirm)}`);
+    const confirm = confirmLink(a.confirm_url);
+    if (confirm) io.err(`sequential: kept as a proposal; a person confirms it at ${oneLine(confirm)}`);
     return EXIT.ok;
 }
 
@@ -260,4 +276,13 @@ export async function whoami(ctx: CuratedContext & { token: string }, io: Curate
     io.out(oneLine(`rights: ${scopes.join(', ') || '(none)'}`));
     io.out(oneLine(`expires: ${str(b.expires_at) ?? 'never'}; ends in …${str(b.last4) ?? '????'}`));
     return EXIT.ok;
+}
+
+/** The token's own project slug, for a mismatch line (best effort: null on any failure). */
+export async function tokenSelf(fetch: FetchLike, host: string, token: string, signal?: AbortSignal): Promise<{ slug?: string } | null> {
+    const r = await getJson(fetch, { host, token, path: '/api/token/self', timeoutMs: 15_000, signal });
+    if (!r.ok) return null;
+    const b = (r.result ?? {}) as Record<string, unknown>;
+    const slug = b.project_slug && typeof b.project_slug === 'object' ? str((b.project_slug as { id?: unknown }).id) : undefined;
+    return { slug };
 }

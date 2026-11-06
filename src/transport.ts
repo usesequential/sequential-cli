@@ -135,6 +135,7 @@ export async function getJson(fetch: FetchLike, req: { host: string; token: stri
             redirect: 'error',
             signal: ctl.signal,
         });
+        if (Number(res.headers?.get('content-length') ?? '0') > MAX_ANSWER_CHARS) return { ok: false, fail: { exit: EXIT.refused, code: 'bad_answer', message: 'The answer is too large.' } };
         const text = await res.text();
         if (text.length > MAX_ANSWER_CHARS) return { ok: false, fail: { exit: EXIT.refused, code: 'bad_answer', message: 'The answer is too large.' } };
         let body: unknown;

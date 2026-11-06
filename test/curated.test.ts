@@ -77,9 +77,15 @@ test('--x=value takes a value that starts with a dash; --dry-run needs no token 
 
 test('a refused text: code, field, reason and the server\'s fixed hint; never the message or errors[].message (it quotes the text)', async () => {
     const secret = 'ghp_' + 'x'.repeat(36);
-    const h = harness(() => toolErr(JSON.stringify({ error: 'text_refused', step: 'secret', reason: 'text_has_secret', hint: 'Leave tokens, keys, card numbers and email addresses out of the text.', message: `Your title "${secret}" was refused`, errors: [{ field: '/title', message: `"${secret}" holds a token` }] })));
+    // The real body (BE changes-write.ts writeRefusal): a top-level field and step, no errors[].
+    const h = harness(() => toolErr(JSON.stringify({ error: 'text_refused', step: 'secret', field: '/title', reason: 'text_has_secret', hint: 'Leave tokens, keys, card numbers and email addresses out of the text.', message: `Your title "${secret}" was refused` })));
     assert.equal(await main(['changes', 'record', '--kind', 'product', '--title', secret], ENV, h.io), 1);
-    assert.deepEqual(h.err, ['sequential: text_refused (/title) text_has_secret: Leave tokens, keys, card numbers and email addresses out of the text.']);
+    assert.equal(h.err.at(-1), 'sequential: text_refused secret (/title) text_has_secret: Leave tokens, keys, card numbers and email addresses out of the text.');
+    // The validation shape (errors[]) still names its first field, never its message.
+    const h2 = harness(() => toolErr(JSON.stringify({ error: 'bad_request', message: 'The request is not valid.', errors: [{ field: '/start', message: `"${secret}" is no date` }] })));
+    assert.equal(await main(['changes', 'record', '--kind', 'product', '--title', 'x'], ENV, h2.io), 1);
+    assert.equal(h2.err.at(-1), 'sequential: bad_request (/start)');
+    assert.ok(!printed(h2).includes(secret));
     assert.ok(!printed(h).includes(secret));
 });
 
@@ -100,7 +106,7 @@ test('changes sync: one request; --source and --source-detail fill the items tha
         atomic: true,
         sync: { source: 'git', source_detail: 'acme.shop', covered_through: '2026-11-06T00:00:00Z' },
     });
-    assert.deepEqual(h.out, ['#0 create c-0', '#1 create c-1', '2 written, 0 refused']);
+    assert.deepEqual(h.out, ['#0 create c-0', '#1 create c-1', '2 written, 0 proposed, 0 refused']);
     const h2 = harness(() => ok({ items: [] }), { readText: () => items });
     await main(['changes', 'sync', '--items', 'i.json'], ENV, h2.io);
     assert.equal('sync' in h2.calls()[0].body!.params!.arguments!, false);
@@ -113,7 +119,7 @@ test('changes sync: a refused or not_checked item → exit 3, one line each with
         { index: 2, outcome: 'not_checked', reason: 'not_checked', hint: 'Try again later.' },
     ] }), { readText: () => '[{"kind":"product","title":"a"},{"kind":"product","title":"b"},{"kind":"product","title":"c"}]' });
     assert.equal(await main(['changes', 'sync', '--items', '-'], ENV, h.io), 3);
-    assert.deepEqual(h.out, ['#0 create c-0', '#1 refused screen (/title) reads_as_agent_instruction: Describe what changed, in the past tense.', '#2 not_checked not_checked: Try again later.', '1 written, 2 refused']);
+    assert.deepEqual(h.out, ['#0 create c-0', '#1 refused screen (/title) reads_as_agent_instruction: Describe what changed, in the past tense.', '#2 not_checked not_checked: Try again later.', '1 written, 0 proposed, 2 refused']);
 });
 
 test('changes sync: no items, bad JSON, --covered-from alone → exit 2 before any request', async () => {
@@ -140,7 +146,7 @@ test('releases record: SEQUENTIAL_RELEASES_TOKEN first, then SEQUENTIAL_TOKEN; r
 test('releases record: a sentence refusal prints its leading field only; a timeout says check before running it again', async () => {
     const h = harness(() => toolErr('version: 1-64 printable characters, not a placeholder such as "null"'));
     assert.equal(await main(['releases', 'record', '--version', 'null'], ENV, h.io), 1);
-    assert.deepEqual(h.err, ['sequential: Sequential refused it (version)']);
+    assert.equal(h.err.at(-1), 'sequential: Sequential refused it (version)');
 });
 
 test('tokens: none, a server key, a malformed one → exit 2, nothing sent, the token never printed', async () => {
@@ -183,4 +189,71 @@ test('--project is sent as project; --help prints the usage and exits 0', async 
     const h2 = harness(() => ok({}));
     assert.equal(await main(['changes', 'record', '--help'], ENV, h2.io), 0);
     assert.match(h2.out.join('\n'), /changes record --kind/);
+});
+
+// ---- review findings (wf_04ebca3d-048) ----
+test('whoami --dry-run is refused (it would send); whoami --timeout is taken; whoami is JSON only with --json', async () => {
+    const h = harness(() => ({ body: {} }));
+    assert.equal(await main(['whoami', '--dry-run'], ENV, h.io), 2);
+    assert.equal(h.seen.length, 0);
+    const self = { kind: 'pat', project_id: 'p1', project_slug: { id: 'shop', source: 'observed' }, scopes: [], expires_at: '2027-01-01T00:00:00.000Z', last4: 'C3d4' };
+    const h2 = harness(() => ({ body: self }));
+    assert.equal(await main(['whoami', '--timeout', '5'], ENV, h2.io), 0);
+    assert.match(h2.out[0], /^a project access token for project shop/);
+    const h3 = harness(() => ({ body: self }));
+    assert.equal(await main(['whoami', '--json'], ENV, h3.io), 0);
+    assert.equal(JSON.parse(h3.out[0]).project_id, 'p1');
+});
+
+test('changes sync: proposed items are counted apart and the confirm link is printed', async () => {
+    const h = harness(() => ok({ items: [{ index: 0, outcome: 'create', change_id: 'c-0' }, { index: 1, outcome: 'proposed', change_id: 'c-1' }], confirm_url: 'https://app.usesequential.com/changes/confirm/b-1' }), { readText: () => '[{"kind":"product","title":"a"},{"kind":"product","title":"Turn it on"}]' });
+    assert.equal(await main(['changes', 'sync', '--items', 'x'], ENV, h.io), 0);
+    assert.deepEqual(h.out, ['#0 create c-0', '#1 proposed c-1', '1 written, 1 proposed, 0 refused']);
+    assert.match(h.err.join('\n'), /1 kept as a proposal; a person confirms them at https:\/\/app\.usesequential\.com\/changes\/confirm\/b-1/);
+});
+
+test('changes sync: an item refused with an error code (person_owned, not_found …) prints it', async () => {
+    const h = harness(() => ok({ items: [{ index: 0, outcome: 'refused', error: 'person_owned' }] }), { readText: () => '[{"kind":"product","title":"a"}]' });
+    assert.equal(await main(['changes', 'sync', '--items', 'x'], ENV, h.io), 3);
+    assert.equal(h.out[0], '#0 refused person_owned');
+});
+
+test('a named write prints its project on stderr: from --project, from the file, or the token\'s own', async () => {
+    const h = harness(() => ok({ outcome: 'create', change_id: 'c-1' }));
+    await main(['changes', 'record', '--kind', 'product', '--title', 'x'], ENV, h.io);
+    assert.equal(h.err[0], "sequential: changes record on the token's project");
+    const h2 = harness(() => ok({ outcome: 'create', change_id: 'c-1' }));
+    await main(['changes', 'record', '--kind', 'product', '--title', 'x', '--project', 'web'], ENV, h2.io);
+    assert.equal(h2.err[0], 'sequential: changes record on project web');
+});
+
+test('a project mismatch: exit 2 and which project the token is for (GET /api/token/self)', async () => {
+    const h = harness((tool) => (tool === 'GET'
+        ? { body: { kind: 'pat', project_id: 'p1', project_slug: { id: 'shop', source: 'observed' }, scopes: [], expires_at: '2027-01-01T00:00:00.000Z', last4: 'C3d4' } }
+        : toolErr(JSON.stringify({ error: 'project_not_in_connection', message: 'This connection reaches one project only' }))));
+    assert.equal(await main(['changes', 'record', '--kind', 'product', '--title', 'x', '--project', 'web'], ENV, h.io), 2);
+    assert.equal(h.err.at(-1), 'sequential: this token is for project shop, not web. Pass its id or slug, or leave the project out.');
+});
+
+test('the token lacks the right: exit 4 naming the variable and the right (releases fall back to SEQUENTIAL_TOKEN)', async () => {
+    const h = harness(() => toolErr('Tool not available for this token'));
+    assert.equal(await main(['releases', 'record', '--version', '1.0.0'], ENV, h.io), 4);
+    assert.equal(h.err.at(-1), 'sequential: the token in SEQUENTIAL_TOKEN cannot do this: releases record needs releases:write (or set SEQUENTIAL_RELEASES_TOKEN to a token that has it).');
+});
+
+test('--dry-run on a terminal strips controls from the arguments it prints', async () => {
+    const h = harness(() => ok({}), { stdoutTTY: true });
+    assert.equal(await main(['changes', 'record', '--kind', 'product', '--title', 'a\u009b2J\u202eb', '--dry-run'], {}, h.io), 0);
+    assert.ok(!/[\u009b\u202e]/.test(h.out.join('\n')));
+});
+
+test('help: the index, help <command>, <command> --help; an unknown one is exit 2', async () => {
+    const h = harness(() => ok({}));
+    assert.equal(await main(['help', 'changes', 'sync'], ENV, h.io), 0);
+    assert.match(h.out[0], /^Usage: sequential changes sync --items/);
+    assert.equal(await main(['releases', 'record', '--help'], ENV, h.io), 0);
+    assert.match(h.out.at(-1)!, /SEQUENTIAL_RELEASES_TOKEN, else SEQUENTIAL_TOKEN/);
+    assert.equal(await main(['tools', '--help'], ENV, h.io), 0);
+    assert.equal(await main(['help', 'nope'], ENV, h.io), 2);
+    assert.equal(h.seen.length, 0);
 });
