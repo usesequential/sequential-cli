@@ -3,7 +3,7 @@ import { classifyHttp, EXIT, type Fail, type HttpOutcome } from './errors';
 
 export const DEFAULT_HOST = 'https://api.usesequential.com';
 export const PROTOCOL_VERSION = '2025-06-18';
-export { VERSION as CLI_VERSION } from './version';
+export { VERSION as CLI_VERSION, VERSION } from './version';
 import { VERSION } from './version';
 export const DEFAULT_TIMEOUT_MS = 120_000;
 /** The largest answer read (a hostile or broken host must not fill memory). */
@@ -114,4 +114,46 @@ export function apiHost(v: string | undefined): string {
     if (u.protocol !== 'https:' && !(u.protocol === 'http:' && local)) throw new Error('--host must be https (http only for localhost)');
     if (u.pathname !== '/' || u.search || u.hash || u.username || u.password) throw new Error('--host must be an origin, for example https://api.usesequential.com');
     return u.origin;
+}
+
+/** One GET of a token route (GET /api/token/self): the same headers, no redirects, the same timeout and size rules. The
+ *  answer is a plain JSON body (layer 1 rules: an `error` string is a refusal). */
+export async function getJson(fetch: FetchLike, req: { host: string; token: string; path: string; timeoutMs?: number; signal?: AbortSignal }): Promise<HttpOutcome> {
+    const ctl = new AbortController();
+    let timedOut = false;
+    const ms = req.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+    const timer = setTimeout(() => {
+        timedOut = true;
+        ctl.abort();
+    }, ms);
+    const onAbort = () => ctl.abort();
+    req.signal?.addEventListener('abort', onAbort, { once: true });
+    try {
+        const res = await (fetch as unknown as (u: string, i: Record<string, unknown>) => ReturnType<FetchLike>)(`${req.host}${req.path}`, {
+            method: 'GET',
+            headers: { accept: 'application/json', authorization: `Bearer ${req.token}`, 'user-agent': `sequential-cli/${VERSION}` },
+            redirect: 'error',
+            signal: ctl.signal,
+        });
+        const text = await res.text();
+        if (text.length > MAX_ANSWER_CHARS) return { ok: false, fail: { exit: EXIT.refused, code: 'bad_answer', message: 'The answer is too large.' } };
+        let body: unknown;
+        try {
+            body = JSON.parse(text);
+        } catch {
+            return { ok: false, fail: { exit: EXIT.refused, code: 'not_reached', message: `Sequential was not reached (HTTP ${res.status}).` } };
+        }
+        if (res.status >= 200 && res.status < 300 && body && typeof body === 'object' && !('error' in body)) return { ok: true, result: body };
+        return classifyHttp(res.status, text, { retryAfter: res.headers?.get('retry-after') ?? null });
+    } catch {
+        const fail: Fail = timedOut
+            ? { exit: EXIT.refused, code: 'timeout', message: `No answer within ${Math.round(ms / 1000)} s.` }
+            : req.signal?.aborted
+              ? { exit: EXIT.refused, code: 'cancelled', message: 'Cancelled.' }
+              : { exit: EXIT.refused, code: 'not_reached', message: 'Sequential was not reached.' };
+        return { ok: false, fail };
+    } finally {
+        clearTimeout(timer);
+        req.signal?.removeEventListener('abort', onAbort);
+    }
 }

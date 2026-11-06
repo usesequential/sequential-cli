@@ -1,0 +1,26 @@
+{
+    "_comment": "The facts this CLI relies on from the Sequential server. The server's repository vendors this file (tests/sdk-cli/cli-facts.json) and fails its gate when the server stops matching it. Change it with the code (test/contract.test.ts).",
+    "cli_version": "0.1.0",
+    "protocol_version": "2025-06-18",
+    "accept": "application/json, text/event-stream",
+    "stub_title_suffix": " (not enabled)",
+    "not_available_text": "Tool not available for this token",
+    "named_tools": [
+        "record_change",
+        "record_changes",
+        "record_release",
+        "ask_sessions"
+    ],
+    "paid_reads": [
+        "ask_sessions"
+    ],
+    "token_self_path": "/api/token/self",
+    "token_self_keys": [
+        "kind",
+        "project_id",
+        "project_slug",
+        "scopes",
+        "expires_at",
+        "last4"
+    ]
+}

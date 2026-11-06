@@ -12,6 +12,8 @@ export interface Fail {
     /** Words to print. For a server refusal: the server's `message` — never `errors[].message`. */
     message: string;
     retryAfterSec?: number;
+    /** The refusal's JSON body, when it had one: the named commands read `errors[0].field`, `reason` and `hint` from it. */
+    detail?: Record<string, unknown>;
 }
 
 export class UsageError extends Error {}
@@ -102,9 +104,9 @@ export function classifyToolResult(result: unknown): ToolOutcome {
         if (isObj(body) && typeof body.error === 'string') {
             const retry = retryOf(body);
             const message = typeof body.message === 'string' ? body.message : body.error;
-            if (retry !== undefined) return { ok: false, fail: { exit: EXIT.later, code: body.error, message, retryAfterSec: retry } };
-            if (body.error === 'needs_scope') return { ok: false, fail: { exit: EXIT.auth, code: body.error, message } };
-            return { ok: false, fail: { exit: EXIT.refused, code: body.error, message } };
+            if (retry !== undefined) return { ok: false, fail: { exit: EXIT.later, code: body.error, message, retryAfterSec: retry, detail: body } };
+            if (body.error === 'needs_scope') return { ok: false, fail: { exit: EXIT.auth, code: body.error, message, detail: body } };
+            return { ok: false, fail: { exit: EXIT.refused, code: body.error, message, detail: body } };
         }
         if (text === NOT_AVAILABLE) {
             return { ok: false, fail: { exit: EXIT.auth, code: 'not_available', message: 'This token cannot use this tool (its scopes, or the feature is off for this project).' } };

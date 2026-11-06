@@ -36,6 +36,11 @@ function readJson(p: string): Record<string, unknown> {
     return v as Record<string, unknown>;
 }
 
+/** changes sync --items: a file's text, or all of stdin for '-'. */
+function readText(p: string): string {
+    return readFileSync(p === '-' ? 0 : p, 'utf8');
+}
+
 const confirm = (question: string): Promise<boolean> => askYesNo(question, createInterface({ input: process.stdin, output: process.stderr }));
 
 const ctl = new AbortController();
@@ -49,6 +54,7 @@ main(process.argv.slice(2), process.env, {
     interactive: process.stdin.isTTY === true && process.stderr.isTTY === true,
     confirm,
     readJson,
+    readText,
     signal: ctl.signal,
     cacheDir: defaultCacheDir(),
 }).then(
