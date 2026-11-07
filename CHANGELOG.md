@@ -1,6 +1,10 @@
 # Changelog
 
-## 0.1.0 (unreleased)
+## 0.1.1
+
+- The npm page links to the repository: package.json names `repository`, `bugs` and `homepage`. No change to the CLI.
+
+## 0.1.0 (2026-11-07)
 
 - `sequential tools` and `sequential tools describe <tool>`: the tools your token can use, from Sequential's live tool list.
 - `sequential call <tool>`: call any tool. Its arguments come from the tool's own schema.

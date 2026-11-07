@@ -1,6 +1,6 @@
 {
     "name": "@usesequential/cli",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "description": "The Sequential command line: record changes and releases from any CI or shell, and call every Sequential agent tool from scripts.",
     "keywords": [
         "sequential",
@@ -11,8 +11,15 @@
         "release",
         "changes"
     ],
-    "homepage": "https://www.usesequential.com/docs",
+    "homepage": "https://github.com/usesequential/sequential-cli#readme",
     "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/usesequential/sequential-cli.git"
+    },
+    "bugs": {
+        "url": "https://github.com/usesequential/sequential-cli/issues"
+    },
     "type": "commonjs",
     "bin": {
         "sequential": "dist/bin.js"
