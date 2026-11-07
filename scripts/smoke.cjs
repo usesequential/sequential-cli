@@ -1,7 +1,8 @@
 // The built package as npm would ship it. ONE bin, `sequential`: with two, `npx @usesequential/cli …` cannot tell which to
 // run (npm picks the bin named after the package, else the only one; "cli" is neither), so every documented command
 // would fail. `sequential` prints its version and refuses without a token (exit 2). The alias entry dist/release-bin.js
-// (run by @usesequential/release-cli's bin) prints its usage and refuses without a token (exit 1). The tarball holds only
+// (run by @usesequential/release-cli's bin) works as release-cli 0.2.1: --help is an unknown option with the usage, and
+// no SEQUENTIAL_RELEASES_TOKEN is refused (exit 1 both). The tarball holds only
 // dist, README, LICENSE and CHANGELOG (no tests, no sources, no fixtures).
 const { execFileSync, spawnSync } = require('node:child_process');
 const fs = require('node:fs');
@@ -20,7 +21,9 @@ assert.equal(execFileSync(process.execPath, [bin, '--version'], { encoding: 'utf
 const none = spawnSync(process.execPath, [bin, 'tools'], { encoding: 'utf8', env: bare });
 assert.equal(none.status, 2);
 assert.match(none.stderr, /SEQUENTIAL_TOKEN/);
-assert.match(execFileSync(process.execPath, [release, '--help'], { encoding: 'utf8', env: bare }), /^Usage: sequential-release --version/);
+const help = spawnSync(process.execPath, [release, '--help'], { encoding: 'utf8', env: { ...bare, SEQUENTIAL_RELEASES_TOKEN: 'sq_pat_' + 'A1b2C3d4'.repeat(4) } });
+assert.equal(help.status, 1);
+assert.match(help.stderr, /^Unknown option: --help\nUsage: sequential-release --version/);
 const noRel = spawnSync(process.execPath, [release, '--version', '1.0.0'], { encoding: 'utf8', env: { ...bare, SEQUENTIAL_TOKEN: 'sq_pat_' + 'A1b2C3d4'.repeat(4) } });
 assert.equal(noRel.status, 1);
 assert.match(noRel.stderr, /^SEQUENTIAL_RELEASES_TOKEN is required/);

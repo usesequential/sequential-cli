@@ -98,7 +98,8 @@ ${COMMON_NAMED}
 
 Prints the stored release, then \`Recorded release <version> (<n> findings: F-1, F-4; <m> changes since <base>)\`.
 Token: SEQUENTIAL_RELEASES_TOKEN, else SEQUENTIAL_TOKEN, with releases:write. The old \`sequential-release\` command
-(@usesequential/release-cli) runs this same command, with SEQUENTIAL_RELEASES_TOKEN only and exit 0 or 1.`,
+(@usesequential/release-cli) is not this command: it works exactly as release-cli 0.2.1 did (POST /api/releases,
+SEQUENTIAL_RELEASES_TOKEN only, exit 0 or 1).`,
     whoami: `Usage: sequential whoami [--json] [--timeout <seconds>]
 
 Prints what the token in SEQUENTIAL_TOKEN is: a project access token, its project, its rights, when it expires and its

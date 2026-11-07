@@ -201,11 +201,12 @@ head commit.
 ### `sequential-release` (the old `@usesequential/release-cli`)
 
 The old command keeps working through `@usesequential/release-cli`, whose next version runs this package's
-`sequential releases record` (not published yet). The rules stay the old ones: the token from `SEQUENTIAL_RELEASES_TOKEN`
-only (never `SEQUENTIAL_TOKEN`); the API from `--host` or `SEQUENTIAL_API_URL` (`https://`, or `http://` for `localhost`
-and `127.0.0.1` only); `--sha` is `--commit-sha`; a value may start with `--`; a repeated flag keeps its last value; exit
-0 or 1 only; on success, only the `Recorded release …` line. Two things differ from 0.2.x: the API URL must be an origin
-(no path), and the token must be a project access token (`sq_pat_…`).
+`dist/release-bin.js` (not published yet). It works exactly as release-cli 0.2.1: `POST /api/releases` with the token
+from `SEQUENTIAL_RELEASES_TOKEN` only (never `SEQUENTIAL_TOKEN`); the API from `--host`, else `SEQUENTIAL_API_URL`, else
+`https://api.usesequential.com` (`https://`, or `http://` for `localhost` and `127.0.0.1` only); the same flags (`--sha`
+is `--commit-sha`; a value may start with `--`; a repeated flag keeps its last value; `--flag=value` and any other option
+are refused with the usage); the same lines; exit 0 or 1 only. It is not `sequential releases record`: no `--json`,
+`--dry-run`, `--finding`, `--project` or `--timeout`. Only its user-agent header is new (`sequential-cli/<version>`).
 
 ## See your tools
 
@@ -251,7 +252,7 @@ characters from it.
 | 1 | Sequential refused the call, or was not reached |
 | 2 | A usage mistake (an unknown flag, a missing argument, no token, a project that is not the token's) |
 | 3 | `changes sync`: some changes were refused (each is printed with why) |
-| 4 | The token cannot do this (its rights, or the feature is off for the project) |
+| 4 | The token cannot do this (its rights, or the feature is off for the project). On a trial project whose terms the person who made the token has not accepted yet, the CLI says so: that person signs in to Sequential and accepts them, then the same command works |
 | 5 | Try again later. The wait in seconds is printed (`retry_after_sec`) |
 
 The CLI never retries on its own.

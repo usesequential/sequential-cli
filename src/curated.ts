@@ -3,7 +3,7 @@
 // the command's name says what it writes. They copy no server rule (ruling 4): kinds, limits and formats are the
 // server's to check; the CLI checks only the shape of its own flags. Their lines are the old CLI's (@usesequential/node
 // 1.x), on a terminal or not; --json prints the answer instead.
-import { classifyToolResult, EXIT, UsageError, type ExitCode, type Fail } from './errors';
+import { classifyToolResult, EXIT, TERMS_PENDING, TERMS_PENDING_LINE, UsageError, type ExitCode, type Fail } from './errors';
 import { oneLine, stripDeep, ttySafeJson } from './text';
 import { PROTOCOL_VERSION, rpc, VERSION, getJson, type FetchLike } from './transport';
 import { addIds } from './release/findings';
@@ -220,8 +220,6 @@ export interface CuratedContext {
     stdoutTTY?: boolean;
     /** releases record --github-changes: GITHUB_TOKEN, GITHUB_REPOSITORY, GITHUB_API_URL, GITHUB_EVENT_PATH. */
     env?: Record<string, string | undefined>;
-    /** sequential-release (the old bin): releases record prints the old CLI's success line only. */
-    legacy?: boolean;
 }
 
 /** Runs one named command after the flags parsed. The token is checked by the caller (not needed for --dry-run). */
@@ -277,14 +275,12 @@ export async function runCurated(cmd: string, f: Flags, ctx: CuratedContext, io:
     if (cmd === 'changes sync') return syncLines(answer, io.out, io.err);
     const a = (answer ?? {}) as Record<string, unknown>;
     if (cmd === 'releases record') {
-        if (!ctx.legacy) {
-            const rel = (a.release && typeof a.release === 'object' ? a.release : {}) as Record<string, unknown>;
-            const v = str(rel.version) ?? String(args.version);
-            io.out(oneLine(`recorded release ${v}`));
-            const env = str(rel.environment);
-            const at = str(rel.released_at);
-            if (env || at) io.out(oneLine(`environment ${env ?? '?'}, released at ${at ?? '?'}${Array.isArray(rel.finding_ids) ? `, names ${rel.finding_ids.length} case(s)` : ''}`));
-        }
+        const rel = (a.release && typeof a.release === 'object' ? a.release : {}) as Record<string, unknown>;
+        const v = str(rel.version) ?? String(args.version);
+        io.out(oneLine(`recorded release ${v}`));
+        const env = str(rel.environment);
+        const at = str(rel.released_at);
+        if (env || at) io.out(oneLine(`environment ${env ?? '?'}, released at ${at ?? '?'}${Array.isArray(rel.finding_ids) ? `, names ${rel.finding_ids.length} case(s)` : ''}`));
         // The old CLI's line (@usesequential/release-cli): what was sent, and what GitHub added.
         io.out(successLine(String(args.version), Array.isArray(args.finding_ids) ? (args.finding_ids as string[]) : [], note));
         return EXIT.ok;
@@ -303,7 +299,8 @@ function syncExit(answer: unknown): ExitCode {
 }
 
 function failOut(io: CuratedIo, f: Fail, json: boolean): ExitCode {
-    if (json) io.err(JSON.stringify(stripDeep({ error: f.code, ...(f.retryAfterSec === undefined ? {} : { retry_after_sec: f.retryAfterSec }) })));
+    // JSON leaves the server's message out (it can quote a secret); the terms line is this CLI's own fixed text.
+    if (json) io.err(JSON.stringify(stripDeep({ error: f.code, ...(f.code === TERMS_PENDING ? { message: TERMS_PENDING_LINE } : {}), ...(f.retryAfterSec === undefined ? {} : { retry_after_sec: f.retryAfterSec }) })));
     else io.err(refusalLine(f));
     return f.exit;
 }

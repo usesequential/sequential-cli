@@ -42,6 +42,12 @@ function retryOf(body: Record<string, unknown>, header?: string | null): number 
 
 export type HttpOutcome = { ok: true; result: unknown } | { ok: false; fail: Fail };
 
+/** The server's 403 while the person who made the token still owes the trial's terms (BE src/trial/terms-gate.ts
+ *  answerTermsPending: { error: 'terms_pending', message, project_id, organization_id }, on /mcp and on REST). */
+export const TERMS_PENDING = 'terms_pending';
+/** What the person does about it: the server's own message speaks to the app ("Accept … first"), not to a CLI user. */
+export const TERMS_PENDING_LINE = 'The person who made this token has not accepted the trial\'s terms yet: they sign in to Sequential and accept them, then the same command works.';
+
 /**
  * Layers 1 and 2: the HTTP answer of POST /mcp. Classified by BODY, never by status alone (a JSON-RPC parse error is a 400
  * too). A `jsonrpc` key → layer 2 (protocol); an `error` string → layer 1 (the auth gate); neither → not Sequential.
@@ -70,6 +76,7 @@ export function classifyHttp(status: number, text: string, opts: { retryAfter?: 
         const code = body.error;
         const message = typeof body.message === 'string' ? body.message : code;
         const retry = retryOf(body, opts.retryAfter);
+        if (status === 403 && code === TERMS_PENDING) return { ok: false, fail: { exit: EXIT.auth, code, message: TERMS_PENDING_LINE } };
         if (AUTH_STATUSES.has(status)) return { ok: false, fail: { exit: EXIT.auth, code, message } };
         if (LATER_STATUSES.has(status)) return { ok: false, fail: { exit: EXIT.later, code, message, ...(retry === undefined ? {} : { retryAfterSec: retry }) } };
         return { ok: false, fail: { exit: EXIT.refused, code, message } };

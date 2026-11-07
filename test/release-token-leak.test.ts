@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { main, type Io } from '../src/cli';
-import { runReleaseAlias } from '../src/release/alias';
+import { runReleaseAlias, type AliasDeps } from '../src/release/alias';
 import type { FetchLike } from '../src/transport';
 
 // mgmt 11-06: no failure path of `releases record` or `sequential-release` prints GITHUB_TOKEN, the Sequential token or an
@@ -59,9 +59,34 @@ for (const mode of MODES) {
             assert.deepEqual(leaks(lines.join('\n')), [], lines.join('\n'));
         }
     });
-    test(`no token or Authorization header printed: ${mode} (sequential-release)`, async () => {
-        const { i, lines } = io(mode);
-        await runReleaseAlias(ARGS, ENV, i);
-        assert.deepEqual(leaks(lines.join('\n')), [], lines.join('\n'));
+}
+
+// `sequential-release` is release-cli 0.2.1 (POST /api/releases): no --timeout and no size cap there, so no hang or huge
+// mode; it prints a refusal's message and fetch's error message as 0.2.1 did, so a quoted "Authorization" word may show,
+// but never either token (each is shown as [token]).
+type AliasMode = 'gh-throws' | 'gh-401-echo' | 'seq-throws' | 'seq-500-echo' | 'seq-refusal-echo' | 'seq-error-echo';
+function aliasDeps(mode: AliasMode) {
+    let text = '';
+    const fetchImpl = (async (url: string, init: { method: string }) => {
+        if (init.method === 'GET') {
+            if (mode === 'gh-throws') throw new TypeError(`fetch failed ${url} ${echo}`);
+            if (mode === 'gh-401-echo') return { status: 401, json: async () => ({ message: echo }) };
+            return { status: 404, json: async () => ({ message: echo }) };
+        }
+        if (mode === 'seq-throws') throw new TypeError(`fetch failed ${url} ${echo}`);
+        if (mode === 'seq-500-echo') return { status: 500, json: async () => JSON.parse(`<html>${echo}</html>`) };
+        if (mode === 'seq-refusal-echo') return { status: 400, json: async () => ({ error: 'bad_request', message: echo }) };
+        if (mode === 'seq-error-echo') return { status: 401, json: async () => ({ error: echo }) };
+        return { status: 201, json: async () => ({ release: { version: HEAD } }) };
+    }) as unknown as AliasDeps['fetchImpl'];
+    const deps: AliasDeps = { fetchImpl, execGit: () => '', readFile: () => JSON.stringify({ before: 'b'.repeat(40) }), stdout: { write: (s) => { text += s; } }, stderr: { write: (s) => { text += s; } } };
+    return { deps, text: () => text };
+}
+for (const mode of ['gh-throws', 'gh-401-echo', 'seq-throws', 'seq-500-echo', 'seq-refusal-echo', 'seq-error-echo'] as AliasMode[]) {
+    test(`neither token printed: ${mode} (sequential-release)`, async () => {
+        const { deps, text } = aliasDeps(mode);
+        await runReleaseAlias(['--version', HEAD, '--commit-sha', HEAD, '--github-changes'], ENV, deps);
+        assert.ok(text().length > 0);
+        assert.deepEqual([SEQ, SEQ.slice(7), GH, GH.slice(4)].filter((t) => text().includes(t)), [], text());
     });
 }

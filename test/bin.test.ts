@@ -30,3 +30,19 @@ test('a host that refuses the connection: exit 1 "not reached", no ExperimentalW
     assert.match(r.stderr, /not reached/);
     assert.ok(!r.stderr.includes(token.slice(7)) && !r.stdout.includes(token.slice(7)));
 });
+
+test('warnings: the Node 18 fetch line goes, others still print, and nothing prints when warnings are turned off', () => {
+    const script = `require(${JSON.stringify(join(__dirname, '../src/process.js'))}).dropFetchWarning();
+process.emitWarning('The Fetch API is an experimental feature', 'ExperimentalWarning');
+process.emitWarning('another warning');`;
+    const env = { PATH: process.env.PATH ?? '', HOME: process.env.HOME ?? '' };
+    const on = spawnSync(process.execPath, ['-e', script], { encoding: 'utf8', env, timeout: 20_000 });
+    assert.equal(on.status, 0, on.stderr);
+    assert.match(on.stderr, /Warning: another warning/);
+    assert.doesNotMatch(on.stderr, /Fetch API/);
+    for (const [args, extra] of [[['-e', script], { NODE_NO_WARNINGS: '1' }], [['--no-warnings', '-e', script], {}]] as const) {
+        const off = spawnSync(process.execPath, [...args], { encoding: 'utf8', env: { ...env, ...extra }, timeout: 20_000 });
+        assert.equal(off.status, 0, off.stderr);
+        assert.equal(off.stderr, '', args.join(' '));
+    }
+});

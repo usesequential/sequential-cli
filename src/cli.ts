@@ -89,20 +89,19 @@ export function namedTimeout(f: ReturnType<typeof parseCurated>): number | undef
     return t === undefined ? undefined : Number(t) * 1000;
 }
 
-/** A named write once its host, token and project are known: the `sequential` bin and the `sequential-release` alias
- *  (legacy: the old CLI's lines only) run the same path from here. */
+/** A named write once its host, token and project are known. */
 export async function runNamed(
     name: string,
     f: ReturnType<typeof parseCurated>,
-    s: { host: string; tok?: { token: string; name: string }; chosen: ProjectChoice; timeoutMs?: number; legacy?: boolean },
+    s: { host: string; tok?: { token: string; name: string }; chosen: ProjectChoice; timeoutMs?: number },
     env: Record<string, string | undefined>,
     io: Io,
 ): Promise<ExitCode> {
     const { host, tok, chosen, timeoutMs } = s;
     const dry = f.has('dry-run');
     for (const w of chosen.warnings) io.err(`sequential: ${oneLine(w)}`);
-    if (!dry && !f.has('json') && !s.legacy) io.err(`sequential: ${name} on ${chosen.project ? `project ${oneLine(chosen.project)}${chosen.from ? ` (from ${oneLine(chosen.from)})` : ''}` : "the token's project"}`);
-    const code = await runCurated(name, f, { host, token: tok?.token, project: chosen.project, timeoutMs, stdoutTTY: io.stdoutTTY, env, legacy: s.legacy }, io, async (fail) => {
+    if (!dry && !f.has('json')) io.err(`sequential: ${name} on ${chosen.project ? `project ${oneLine(chosen.project)}${chosen.from ? ` (from ${oneLine(chosen.from)})` : ''}` : "the token's project"}`);
+    const code = await runCurated(name, f, { host, token: tok?.token, project: chosen.project, timeoutMs, stdoutTTY: io.stdoutTTY, env }, io, async (fail) => {
         if (fail.code === 'project_not_in_connection' && tok) {
             io.err(await mismatchLine(io, host, tok.token, chosen.project, chosen.from));
             return EXIT.usage;

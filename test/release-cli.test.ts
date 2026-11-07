@@ -3,13 +3,14 @@ import { spawnSync } from 'node:child_process';
 import { join } from 'node:path';
 import { describe, test } from 'node:test';
 import { main, type Io } from '../src/cli';
-import { runReleaseAlias } from '../src/release/alias';
+import { runReleaseAlias, USAGE as ALIAS_USAGE, type AliasDeps } from '../src/release/alias';
+import { VERSION } from '../src/version';
 import type { FetchLike } from '../src/transport';
 
 // `sequential releases record` with the options of @usesequential/release-cli (--title, --range, --github-changes, --base,
-// --project-key, --findings), and its old bin `sequential-release`. Ported from that package's tests/cli/cli.test.ts and
-// release.test.ts. The old CLI POSTed /api/releases; the new path is the record_release tool over MCP, so these pins
-// read the tools/call body.
+// --project-key, --findings), ported from that package's tests/cli/cli.test.ts and release.test.ts: the record_release
+// tool over MCP, so these pins read the tools/call body. Then `sequential-release`, the old command itself, which works
+// exactly as release-cli 0.2.1 (POST /api/releases).
 const TOKEN = 'sq_pat_' + 'A1b2C3d4'.repeat(4);
 const OTHER = 'sq_pat_' + 'Z9y8X7w6'.repeat(4);
 const GH_TOKEN = 'ghs_fake_workflow_token';
@@ -20,7 +21,6 @@ type GitHubRoute = (path: string) => { status?: number; body: unknown } | 'throw
 interface Seen { url: string; method: string; headers: Record<string, string>; redirect: string; body: { method?: string; params?: { name?: string; arguments?: Record<string, unknown> } } | null }
 
 const ok = (v: unknown) => ({ jsonrpc: '2.0', result: { content: [{ type: 'text', text: JSON.stringify(v) }] } });
-const toolErr = (text: string) => ({ jsonrpc: '2.0', result: { content: [{ type: 'text', text }], isError: true } });
 const STORED = ok({ release: { version: 'v', environment: 'production', released_at: '2026-11-02T10:00:00.000Z' } });
 
 /** A fake Sequential (POST /mcp) and a fake GitHub (GETs), a fake git, captured lines. */
@@ -337,151 +337,212 @@ describe('releases record --github-changes', () => {
     });
 });
 
-describe('sequential-release (the old bin)', () => {
+// `sequential-release`: release-cli 0.2.1, ported (src/release/alias.ts). test/release-golden.test.ts runs the built bin
+// against every recorded 0.2.1 case; these pin the same rules in-process, on a fake fetch (POST /api/releases).
+interface AliasSeen { url: string; method: string; headers: Record<string, string>; redirect: string; body: Record<string, unknown> | null }
+
+/** A fake Sequential (POST /api/releases) and GitHub (GETs), a fake git, the raw stdout and stderr text. */
+function alias(o: { status?: number; answer?: unknown; throws?: string; github?: GitHubRoute; git?: (args: readonly string[]) => string; event?: string } = {}) {
+    const seen: AliasSeen[] = [];
+    let out = '';
+    let err = '';
+    const gitCalls: string[][] = [];
+    const fetchImpl = (async (url: string, init: { method: string; headers: Record<string, string>; body?: string; redirect: string }) => {
+        seen.push({ url, method: init.method, headers: init.headers, redirect: init.redirect, body: init.body ? JSON.parse(init.body) : null });
+        if (init.method === 'GET') {
+            const r = o.github ? o.github(new URL(url).pathname) : 'throw';
+            if (r === 'throw') throw new TypeError('fetch failed');
+            return { status: r.status ?? 200, json: async () => r.body };
+        }
+        if (o.throws !== undefined) throw new TypeError(o.throws);
+        const answer = o.answer === undefined ? { release: { id: 'rel_1' } } : o.answer;
+        return { status: o.status ?? 201, json: async () => (typeof answer === 'string' ? JSON.parse(answer) : answer) };
+    }) as unknown as AliasDeps['fetchImpl'];
+    const deps: AliasDeps = {
+        fetchImpl,
+        execGit: (args) => {
+            gitCalls.push([...args]);
+            return o.git ? o.git(args) : '';
+        },
+        readFile: () => o.event ?? '{}',
+        stdout: { write: (s) => { out += s; } },
+        stderr: { write: (s) => { err += s; } },
+    };
+    return {
+        deps,
+        seen,
+        gitCalls,
+        out: () => out,
+        err: () => err,
+        posts: () => seen.filter((s) => s.method === 'POST'),
+        sent: () => seen.find((s) => s.method === 'POST')!.body!,
+    };
+}
+
+describe('sequential-release (release-cli 0.2.1, ported)', () => {
     const RENV = { SEQUENTIAL_RELEASES_TOKEN: TOKEN };
+    const UNKNOWN = (flag: string) => `Unknown option: ${flag}\n${ALIAS_USAGE}\n`;
 
-    test('success: the old line only, nothing on stderr; the hosted API by default (SEQUENTIAL_API_URL unset or empty)', async () => {
+    test('success: POST <host>/api/releases, the bearer token, JSON, never a redirect; the old line only; the hosted API by default', async () => {
         for (const env of [RENV, { ...RENV, SEQUENTIAL_API_URL: '' }]) {
-            const h = harness();
-            assert.equal(await runReleaseAlias(['--version', 'fe@2'], env, h.io), 0);
-            assert.deepEqual([h.out, h.err], [['Recorded release fe@2 (no findings named)'], []]);
-            assert.equal(h.seen[0].url, 'https://api.usesequential.com/mcp');
-            assert.deepEqual(h.calls()[0].body!.params, { name: 'record_release', arguments: { version: 'fe@2' } });
+            const h = alias();
+            assert.equal(await runReleaseAlias(['--version', 'fe@2'], env, h.deps), 0);
+            assert.deepEqual([h.out(), h.err()], ['Recorded release fe@2 (no findings named)\n', '']);
+            assert.equal(h.seen.length, 1);
+            const s = h.seen[0];
+            assert.deepEqual([s.method, s.url, s.redirect], ['POST', 'https://api.usesequential.com/api/releases', 'error']);
+            assert.deepEqual(s.headers, { Authorization: `Bearer ${TOKEN}`, 'Content-Type': 'application/json', 'User-Agent': `sequential-cli/${VERSION}` });
+            assert.deepEqual(s.body, { version: 'fe@2' });
         }
     });
 
-    test('reads SEQUENTIAL_RELEASES_TOKEN only: SEQUENTIAL_TOKEN (the changes token) is never used', async () => {
-        const h = harness();
-        assert.equal(await runReleaseAlias(['--version', 'v1'], { SEQUENTIAL_TOKEN: TOKEN }, h.io), 1);
-        assert.deepEqual(h.err, ['SEQUENTIAL_RELEASES_TOKEN is required: a project access token (sq_pat_…) with the releases:write scope, made for one project.']);
-        assert.deepEqual([h.out, h.seen.length], [[], 0]);
-        const h2 = harness();
-        assert.equal(await runReleaseAlias(['--version', 'v1'], { SEQUENTIAL_RELEASES_TOKEN: OTHER, SEQUENTIAL_TOKEN: TOKEN }, h2.io), 0);
-        assert.equal(h2.seen[0].headers.authorization, `Bearer ${OTHER}`);
+    test('every field in the body; empty values are left out; --sha is --commit-sha; a commit sha is not checked without --github-changes', async () => {
+        const h = alias();
+        assert.equal(await runReleaseAlias(['--version', 'v1', '--environment', 'production', '--commit-sha', 'abc1234', '--released-at', '2026-11-07T10:00:00Z', '--title', 'Clearer'], RENV, h.deps), 0);
+        assert.deepEqual(h.sent(), { version: 'v1', environment: 'production', commit_sha: 'abc1234', released_at: '2026-11-07T10:00:00Z', title: 'Clearer' });
+        const e = alias();
+        assert.equal(await runReleaseAlias(['--version', 'v1', '--environment', '', '--commit-sha', '', '--released-at', '', '--title', ''], RENV, e.deps), 0);
+        assert.deepEqual(e.sent(), { version: 'v1' });
+        const s = alias();
+        assert.equal(await runReleaseAlias(['--version', 'v1', '--sha', 'not-a-sha'], RENV, s.deps), 0);
+        assert.deepEqual(s.sent(), { version: 'v1', commit_sha: 'not-a-sha' });
     });
 
-    test('a token that is not a project access token: exit 1, nothing sent', async () => {
-        for (const t of ['sqs_' + 'x'.repeat(40), 'sq_pat_short']) {
-            const h = harness();
-            assert.equal(await runReleaseAlias(['--version', 'v1'], { SEQUENTIAL_RELEASES_TOKEN: t }, h.io), 1);
-            assert.equal(h.seen.length, 0);
-            assert.ok(!h.printed().includes(t));
+    test('reads SEQUENTIAL_RELEASES_TOKEN only: SEQUENTIAL_TOKEN (the changes token) is never used; no shape check', async () => {
+        const h = alias();
+        assert.equal(await runReleaseAlias(['--version', 'v1'], { SEQUENTIAL_TOKEN: TOKEN }, h.deps), 1);
+        assert.equal(h.err(), 'SEQUENTIAL_RELEASES_TOKEN is required: a project access token (sq_pat_…) with the releases:write scope, made for one project.\n');
+        assert.deepEqual([h.out(), h.seen.length], ['', 0]);
+        const h2 = alias();
+        assert.equal(await runReleaseAlias(['--version', 'v1'], { SEQUENTIAL_RELEASES_TOKEN: OTHER, SEQUENTIAL_TOKEN: TOKEN }, h2.deps), 0);
+        assert.equal(h2.seen[0].headers.Authorization, `Bearer ${OTHER}`);
+        // 0.2.1 checked presence only: Sequential refuses a token that is not one.
+        const h3 = alias();
+        assert.equal(await runReleaseAlias(['--version', 'v1'], { SEQUENTIAL_RELEASES_TOKEN: 'sq_pat_short' }, h3.deps), 0);
+        assert.equal(h3.seen[0].headers.Authorization, 'Bearer sq_pat_short');
+    });
+
+    test('the token is checked before anything else: no token, --help, an unknown option: the token line', async () => {
+        for (const argv of [['--help'], ['--nope'], []]) {
+            const h = alias();
+            assert.equal(await runReleaseAlias(argv, {}, h.deps), 1);
+            assert.match(h.err(), /^SEQUENTIAL_RELEASES_TOKEN is required/);
         }
     });
 
-    test('SEQUENTIAL_API_URL: https, or http only to this machine (a trailing slash is fine); else exit 1 before any request', async () => {
-        const bad = harness();
-        assert.equal(await runReleaseAlias(['--version', 'fe@2'], { ...RENV, SEQUENTIAL_API_URL: 'http://api.example.com' }, bad.io), 1);
-        assert.match(bad.err.join('\n'), /--host or SEQUENTIAL_API_URL\) must be https/);
-        assert.equal(bad.seen.length, 0);
-        for (const [api, url] of [
-            ['http://localhost:3000', 'http://localhost:3000/mcp'],
-            ['http://127.0.0.1:3000/', 'http://127.0.0.1:3000/mcp'],
-            ['https://seq.example.test', 'https://seq.example.test/mcp'],
-        ]) {
-            const h = harness();
-            assert.equal(await runReleaseAlias(['--version', 'fe@2'], { ...RENV, SEQUENTIAL_API_URL: api }, h.io), 0, api);
+    test('the API: --host, else SEQUENTIAL_API_URL; https, http only for localhost and 127.0.0.1 (not [::1]); a trailing slash goes, a path stays', async () => {
+        for (const [env, argv, url] of [
+            [{ SEQUENTIAL_API_URL: 'http://localhost:3000' }, [], 'http://localhost:3000/api/releases'],
+            [{ SEQUENTIAL_API_URL: 'http://127.0.0.1:3000/' }, [], 'http://127.0.0.1:3000/api/releases'],
+            [{ SEQUENTIAL_API_URL: 'https://seq.example.test' }, [], 'https://seq.example.test/api/releases'],
+            [{ SEQUENTIAL_API_URL: 'https://other.example.test' }, ['--host', 'https://seq.example.test/'], 'https://seq.example.test/api/releases'],
+            [{}, ['--host', 'https://seq.example.test/base//'], 'https://seq.example.test/base/api/releases'],
+        ] as const) {
+            const h = alias();
+            assert.equal(await runReleaseAlias(['--version', 'v1', ...argv], { ...RENV, ...env }, h.deps), 0, url);
             assert.equal(h.seen[0].url, url);
+            assert.equal(h.err(), '', 'no line about the host');
+        }
+        const must = 'The API URL (--host or SEQUENTIAL_API_URL) must be https (localhost and 127.0.0.1 excepted) — the token it carries is a bearer secret.\n';
+        for (const [env, argv] of [
+            [{ SEQUENTIAL_API_URL: 'http://api.example.com' }, []],
+            [{}, ['--host', 'http://seq.example.test']],
+            [{ SEQUENTIAL_API_URL: 'http://[::1]:3000' }, []],
+        ] as const) {
+            const h = alias();
+            assert.equal(await runReleaseAlias(['--version', 'v1', ...argv], { ...RENV, ...env }, h.deps), 1);
+            assert.equal(h.err(), must);
+            assert.equal(h.seen.length, 0);
+        }
+        const bad = alias();
+        assert.equal(await runReleaseAlias(['--version', 'v1', '--host', 'not a url'], RENV, bad.deps), 1);
+        assert.equal(bad.err(), 'The API URL (--host or SEQUENTIAL_API_URL) is not a valid URL: not a url\n');
+    });
+
+    test('the parser: --flag=value, the new CLI\'s options and a subcommand word are unknown options, with the usage; exit 1', async () => {
+        for (const word of ['--version=v1', '--host=https://seq.example.test', '--github-changes=true', '--help', '--json', '--dry-run', '--finding', '--project', '--timeout', 'release']) {
+            const h = alias();
+            const argv = word === 'release' ? ['release', '--version', 'v1'] : word.includes('=') ? [word] : ['--version', 'v1', word, 'x'];
+            assert.equal(await runReleaseAlias(argv, RENV, h.deps), 1, word);
+            assert.equal(h.err(), UNKNOWN(word), word);
+            assert.deepEqual([h.out(), h.seen.length], ['', 0], word);
+        }
+        const v = alias();
+        assert.equal(await runReleaseAlias(['--version', 'v1', '--title'], RENV, v.deps), 1);
+        assert.equal(v.err(), `--title needs a value.\n${ALIAS_USAGE}\n`);
+        for (const argv of [[], ['--version', ''], ['--project-key', 'a b']]) {
+            const m = alias();
+            assert.equal(await runReleaseAlias(argv, RENV, m.deps), 1);
+            assert.equal(m.err(), `--version is required.\n${ALIAS_USAGE}\n`);
         }
     });
 
-    test('--host sets the API (before SEQUENTIAL_API_URL), anywhere in the line, with the same https rule', async () => {
-        const h = harness();
-        assert.equal(await runReleaseAlias(['--version', 'v1', '--host', 'https://seq.example.test/'], { ...RENV, SEQUENTIAL_API_URL: 'https://other.example.test' }, h.io), 0);
-        assert.equal(h.seen[0].url, 'https://seq.example.test/mcp');
-        const h2 = harness();
-        assert.equal(await runReleaseAlias(['--host=https://seq.example.test', '--version', 'v1'], RENV, h2.io), 0);
-        assert.equal(h2.seen[0].url, 'https://seq.example.test/mcp');
-        const bad = harness();
-        assert.equal(await runReleaseAlias(['--version', 'v1', '--host', 'http://seq.example.test'], RENV, bad.io), 1);
-        assert.match(bad.err.join('\n'), /--host or SEQUENTIAL_API_URL\) must be https/);
-        assert.equal(bad.seen.length, 0);
+    test('a value may start with "--" (it is never a flag), and a repeated flag keeps its last value', async () => {
+        const h = alias();
+        assert.equal(await runReleaseAlias(['--version', 'v0', '--version', 'v1', '--title', '--host=https://evil.example', '--environment', 'staging', '--environment', 'production'], RENV, h.deps), 0);
+        assert.deepEqual(h.sent(), { version: 'v1', environment: 'production', title: '--host=https://evil.example' });
+        assert.equal(h.seen[0].url, 'https://api.usesequential.com/api/releases');
     });
 
-    test('--commit-sha is the flag; --sha is its alias', async () => {
-        for (const argv of [['--commit-sha', 'abc1234'], ['--sha', 'abc1234'], ['--sha=abc1234']]) {
-            const h = harness();
-            assert.equal(await runReleaseAlias(['--version', 'v1', ...argv], RENV, h.io), 0);
-            assert.equal(h.sent().commit_sha, 'abc1234');
+    test('refusals: the server\'s message, else its error, else HTTP <status>; a network failure or a redirect: fetch\'s message; exit 1', async () => {
+        for (const [o, line] of [
+            [{ status: 400, answer: { error: 'bad_request', message: 'version: 1-64 printable ASCII characters' } }, 'version: 1-64 printable ASCII characters\n'],
+            [{ status: 403, answer: { error: 'forbidden' } }, 'forbidden\n'],
+            [{ status: 429, answer: { error: 'rate_limited', message: 'Too many requests for this project. Try again shortly.', retry_after_sec: 30 } }, 'Too many requests for this project. Try again shortly.\n'],
+            [{ status: 502, answer: 'not json' }, 'HTTP 502\n'],
+            [{ throws: 'fetch failed' }, 'fetch failed\n'],
+        ] as const) {
+            const h = alias(o);
+            assert.equal(await runReleaseAlias(['--version', 'v1'], RENV, h.deps), 1, line);
+            assert.deepEqual([h.out(), h.err()], ['', line]);
+            assert.equal(h.posts().length, 1, 'one request, never a retry');
         }
+        const ok200 = alias({ status: 200, answer: 'not json' });
+        assert.equal(await runReleaseAlias(['--version', 'v1'], RENV, ok200.deps), 0);
     });
 
-    test('exit 0 or 1 only: usage mistakes, refusals, not reached, a missing right and try-later are all 1', async () => {
-        const cases: Array<[string, string[], Parameters<typeof harness>[0]]> = [
-            ['no --version', [], {}],
-            ['an unknown option', ['--version', 'fe@2', '--nope', 'x'], {}],
-            ['a subcommand word', ['release', '--version', 'v1'], {}],
-            ['a refusal', ['--version', 'bad version'], { mcp: toolErr('version: 1-64 printable characters') }],
-            ['not reached', ['--version', 'fe@2'], { mcpThrows: true }],
-            ['a gateway 502', ['--version', 'fe@2'], { mcp: 'gateway down', mcpStatus: 502 }],
-            ['no right', ['--version', 'fe@2'], { mcp: toolErr('Tool not available for this token') }],
-            ['try later', ['--version', 'fe@2'], { mcp: toolErr(JSON.stringify({ error: 'daily_cap', message: 'later', retry_after_sec: 60 })) }],
-        ];
-        for (const [why, argv, o] of cases) {
-            const h = harness(o);
-            assert.equal(await runReleaseAlias(argv, RENV, h.io), 1, why);
-            assert.deepEqual(h.out, [], why);
-            assert.ok(h.err.length >= 1, why);
-            assert.ok(!h.printed().includes(TOKEN.slice(7)), why);
-        }
-        const word = harness();
-        await runReleaseAlias(['release', '--version', 'v1'], RENV, word.io);
-        assert.match(word.err.join('\n'), /release/);
-        const unknown = harness();
-        await runReleaseAlias(['--version', 'fe@2', '--nope', 'x'], RENV, unknown.io);
-        assert.match(unknown.err.join('\n'), /--nope/);
-        const right = harness({ mcp: toolErr('Tool not available for this token') });
-        await runReleaseAlias(['--version', 'fe@2'], RENV, right.io);
-        assert.equal(right.err.at(-1), 'sequential: the token in SEQUENTIAL_RELEASES_TOKEN cannot do this: releases record needs releases:write.');
-    });
-
-    test('--range: the trailers, and the old line', async () => {
-        const h = harness({ git: () => 'fix: x\n\nSequential-Finding: F-1, F-4\n' });
-        assert.equal(await runReleaseAlias(['--version', 'fe@2', '--range', 'v1..v2'], RENV, h.io), 0);
+    test('--range: git log of the range (one argv element each), the trailers, the old line; a failed git log is exit 1', async () => {
+        const h = alias({ git: () => 'fix: x\n\nSequential-Finding: F-1, F-4\n' });
+        assert.equal(await runReleaseAlias(['--version', 'fe@2', '--range', 'v1..v2'], RENV, h.deps), 0);
         assert.deepEqual(h.gitCalls, [['log', '--format=%B', 'v1..v2']]);
-        assert.deepEqual(h.out, ['Recorded release fe@2 (2 findings: F-1, F-4)']);
+        assert.deepEqual(h.sent(), { version: 'fe@2', finding_ids: ['F-1', 'F-4'] });
+        assert.equal(h.out(), 'Recorded release fe@2 (2 findings: F-1, F-4)\n');
+        const z = alias({ git: () => 'Sequential-Finding: F-3' });
+        assert.equal(await runReleaseAlias(['--version', 'v', '--range', `${'0'.repeat(40)}..`], RENV, z.deps), 0);
+        assert.deepEqual(z.gitCalls, [['log', '-1', '--format=%B', 'HEAD']]);
+        const f = alias({ git: () => { throw new Error('Command failed: git log'); } });
+        assert.equal(await runReleaseAlias(['--version', 'v', '--range', 'a..b'], RENV, f.deps), 1);
+        assert.deepEqual([f.err(), f.seen.length], ['git log failed: Command failed: git log\n', 0]);
+        const opt = alias();
+        assert.equal(await runReleaseAlias(['--version', 'v', '--range', '--output=x'], RENV, opt.deps), 1);
+        assert.deepEqual([opt.err(), opt.gitCalls.length], ['--range must be a git revision range, not an option: --output=x\n', 0]);
     });
 
-    test('--github-changes with --sha: the same as releases record, the old line', async () => {
-        const h = harness({ github, event: EVENT });
-        const argv = ['--version', HEAD, '--sha', HEAD, '--github-changes'];
-        assert.equal(await runReleaseAlias(argv, { ...GH_ENV, SEQUENTIAL_RELEASES_TOKEN: TOKEN }, h.io), 0);
-        assert.deepEqual(h.out, [`Recorded release ${HEAD} (2 findings: F-1, F-12; 1 change since bbbbbbb)`]);
-        assert.deepEqual(h.err, []);
-        const fail = harness({ github: (p) => (p.includes('/compare/') ? { status: 404, body: {} } : github(p)), event: EVENT });
-        assert.equal(await runReleaseAlias(argv, { ...GH_ENV, SEQUENTIAL_RELEASES_TOKEN: TOKEN }, fail.io), 0);
-        assert.deepEqual(fail.err, ['GitHub: could not compare bbbbbbb...aaaaaaa (HTTP 404); the release is recorded without changes or finding ids from GitHub.']);
+    test('--github-changes with --sha: the GitHub reads, changes and ids in the body, the old line; a GitHub failure is one line and the release is recorded', async () => {
+        const h = alias({ github, event: EVENT });
+        const argv = ['--version', 'v1', '--sha', HEAD, '--github-changes'];
+        assert.equal(await runReleaseAlias(argv, { ...GH_ENV, SEQUENTIAL_RELEASES_TOKEN: TOKEN }, h.deps), 0);
+        assert.equal(h.out(), 'Recorded release v1 (2 findings: F-1, F-12; 1 change since bbbbbbb)\n');
+        assert.equal(h.err(), '');
+        assert.deepEqual(h.sent(), { version: 'v1', commit_sha: HEAD, finding_ids: ['F-1', 'F-12'], changes: [{ title: 'Fix the menu', url: 'https://github.test/acme/mono/pull/4', number: 4 }] });
+        const gets = h.seen.filter((s) => s.method === 'GET');
+        assert.ok(gets.every((g) => g.redirect === 'error' && g.headers.Authorization === `Bearer ${GH_TOKEN}` && !('User-Agent' in g.headers)));
+        const fail = alias({ github: (p) => (p.includes('/compare/') ? { status: 404, body: {} } : github(p)), event: EVENT });
+        assert.equal(await runReleaseAlias(argv, { ...GH_ENV, SEQUENTIAL_RELEASES_TOKEN: TOKEN }, fail.deps), 0);
+        assert.equal(fail.err(), 'GitHub: could not compare bbbbbbb...aaaaaaa (HTTP 404); the release is recorded without changes or finding ids from GitHub.\n');
+        assert.deepEqual(fail.sent(), { version: 'v1', commit_sha: HEAD });
+        const off = alias({ event: EVENT });
+        assert.equal(await runReleaseAlias(argv, { ...GH_ENV, SEQUENTIAL_RELEASES_TOKEN: TOKEN }, off.deps), 0);
+        assert.equal(off.err(), 'GitHub: could not request failed; the release is recorded without changes or finding ids from GitHub.\n');
     });
 
-    test('no project from SEQUENTIAL_PROJECT or .sequential.json (the old CLI had none); --project is sent', async () => {
-        const fs: Io['projectFs'] = { cwd: '/r', home: '/h', uid: null, lstat: () => ({ isFile: () => true, isSymbolicLink: () => false, uid: 0 }), exists: () => true, read: () => '{"project":"from-file"}' };
-        // Positive control: `sequential releases record` reads that file.
-        const control = harness({ io: { projectFs: fs } });
-        assert.equal(await main(rel('--version', 'v1'), ENV, control.io), 0);
-        assert.equal(control.sent().project, 'from-file');
-        const h = harness({ io: { projectFs: fs } });
-        assert.equal(await runReleaseAlias(['--version', 'v1'], RENV, h.io), 0);
-        assert.equal('project' in h.sent(), false);
-        const he = harness();
-        assert.equal(await runReleaseAlias(['--version', 'v1'], { ...RENV, SEQUENTIAL_PROJECT: 'web' }, he.io), 0);
-        assert.equal('project' in he.sent(), false);
-        const h2 = harness();
-        assert.equal(await runReleaseAlias(['--version', 'v1', '--project', 'web'], RENV, h2.io), 0);
-        assert.equal(h2.sent().project, 'web');
-    });
-
-    test('--help: the old usage, exit 0, no token needed', async () => {
-        const h = harness();
-        assert.equal(await runReleaseAlias(['--help'], {}, h.io), 0);
-        assert.match(h.out[0], /^Usage: sequential-release --version <v>/);
-        assert.equal(h.seen.length, 0);
-    });
-
-    test('the token is never printed: success, refusal, network failure', async () => {
-        for (const o of [{}, { mcp: toolErr(JSON.stringify({ error: 'bad_request', message: 'no' })) }, { mcpThrows: true }]) {
-            const h = harness(o);
-            await runReleaseAlias(['--version', 'fe@2'], RENV, h.io);
-            assert.ok(!h.printed().includes(TOKEN.slice(7)));
+    test('neither token is ever printed, even when a server or fetch message quotes it', async () => {
+        const quote = `Bearer ${TOKEN} / ${GH_TOKEN}xyz`;
+        for (const o of [{ status: 400, answer: { error: 'bad_request', message: quote } }, { throws: `fetch failed ${quote}` }]) {
+            const h = alias(o);
+            assert.equal(await runReleaseAlias(['--version', 'v1', '--github-changes', '--sha', HEAD], { ...GH_ENV, SEQUENTIAL_RELEASES_TOKEN: TOKEN }, h.deps), 1);
+            assert.ok(!h.err().includes(TOKEN) && !h.err().includes(GH_TOKEN), h.err());
+            assert.match(h.err(), /Bearer \[token\] \/ \[token\]xyz/);
         }
     });
 });
@@ -498,43 +559,22 @@ describe('the sequential-release executable (build/src/release-bin.js)', () => {
         assert.equal(r.stderr, 'SEQUENTIAL_RELEASES_TOKEN is required: a project access token (sq_pat_…) with the releases:write scope, made for one project.\n');
     });
 
-    test('a usage mistake is exit 1 (never 2); --help is 0', () => {
+    test('a usage mistake is exit 1 (never 2); --help is an unknown option (exit 1), as in 0.2.1', () => {
         assert.equal(run(['--nope'], { SEQUENTIAL_RELEASES_TOKEN: TOKEN }).status, 1);
-        assert.equal(run(['--help']).status, 0);
+        const h = run(['--help'], { SEQUENTIAL_RELEASES_TOKEN: TOKEN });
+        assert.deepEqual([h.status, h.stdout, h.stderr], [1, '', `Unknown option: --help\n${ALIAS_USAGE}\n`]);
     });
 
-    test('a host that refuses the connection: exit 1, no ExperimentalWarning, the token never printed', () => {
+    test('a host that refuses the connection: exit 1, "fetch failed", no ExperimentalWarning, the token never printed', () => {
         const r = run(['--version', 'v1', '--host', 'http://127.0.0.1:9'], { SEQUENTIAL_RELEASES_TOKEN: TOKEN });
         assert.equal(r.status, 1, r.stderr);
-        assert.doesNotMatch(r.stderr, /ExperimentalWarning/);
-        assert.match(r.stderr, /not reached/);
+        assert.equal(r.stderr, 'fetch failed\n');
         assert.ok(!r.stderr.includes(TOKEN.slice(7)) && !r.stdout.includes(TOKEN.slice(7)));
     });
 });
 
 // ---- independent review of PR #3 (wf_50c1df2a-979) ----
 describe('review fixes', () => {
-    test('sequential-release: a value may start with "--", and a repeated flag keeps its last value (as 0.2.x)', async () => {
-        const h = harness();
-        assert.equal(await runReleaseAlias(['--version', 'v1', '--title', '--no-verify cleanup', '--environment', 'staging', '--environment', 'production'], { SEQUENTIAL_RELEASES_TOKEN: TOKEN }, h.io), 0);
-        const a = h.sent();
-        assert.equal(a.title, '--no-verify cleanup');
-        assert.equal(a.environment, 'production');
-    });
-
-    test('sequential-release: --host only in a flag position; a value "--host=…" is a title, and the token stays home', async () => {
-        const h = harness();
-        assert.equal(await runReleaseAlias(['--version', 'v1', '--title', '--host=https://evil.example'], { SEQUENTIAL_RELEASES_TOKEN: TOKEN }, h.io), 0);
-        assert.equal(h.sent().title, '--host=https://evil.example');
-        assert.ok(h.seen.every((s) => s.url.startsWith('https://api.usesequential.com/')));
-    });
-
-    test('sequential-release: a non-default host is named on stderr', async () => {
-        const h = harness();
-        assert.equal(await runReleaseAlias(['--version', 'v'], { SEQUENTIAL_RELEASES_TOKEN: TOKEN, SEQUENTIAL_API_URL: 'https://seq.example.test' }, h.io), 0);
-        assert.deepEqual(h.err, ['sequential: sending the token to https://seq.example.test, not https://api.usesequential.com']);
-    });
-
     test('--range honours --project-key: qualified trailers count, unqualified do not', async () => {
         const h = harness({ git: () => 'Sequential-Finding: F-1, web#F-2\n' });
         assert.equal(await main(rel('--version', 'v', '--range', 'a..b', '--project-key', 'web'), ENV, h.io), 0);

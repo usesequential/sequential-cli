@@ -1,6 +1,6 @@
 {
     "name": "@usesequential/cli",
-    "version": "0.1.1",
+    "version": "0.1.2",
     "description": "The Sequential command line: record changes and releases from any CI or shell, and call every Sequential agent tool from scripts.",
     "keywords": [
         "sequential",
@@ -37,7 +37,7 @@
     "scripts": {
         "build": "node scripts/build.cjs",
         "typecheck": "tsc -p tsconfig.json --noEmit",
-        "test": "tsc -p tsconfig.json && node scripts/test.cjs",
+        "test": "tsc -p tsconfig.json && node scripts/build.cjs && node scripts/test.cjs",
         "smoke": "node scripts/smoke.cjs",
         "prepublishOnly": "node scripts/build.cjs && node scripts/smoke.cjs"
     },

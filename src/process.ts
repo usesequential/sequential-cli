@@ -1,5 +1,5 @@
-// What both executables (`sequential`, `sequential-release`) give the CLI: this process's terminal, files, git and
-// fetch, and the one Node 18 warning that goes.
+// What the `sequential` executable gives the CLI: this process's terminal, files, git and fetch; and the one Node 18
+// warning that goes (both executables).
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { createInterface } from 'node:readline';
@@ -10,14 +10,14 @@ import type { Io } from './cli';
 import type { FetchLike } from './transport';
 
 /** Node 18 prints "ExperimentalWarning: The Fetch API is an experimental feature" on the first fetch. That one line only
- *  goes; every other warning is still printed. */
+ *  goes; every other warning still goes to the listeners Node put there. With no listener (NODE_NO_WARNINGS=1 or
+ *  --no-warnings: Node then adds none), nothing is printed, as without this function. */
 export function dropFetchWarning(): void {
     const listeners = process.listeners('warning');
     process.removeAllListeners('warning');
     process.on('warning', (w: Error & { name: string }) => {
         if (w.name === 'ExperimentalWarning' && /fetch/i.test(w.message)) return;
-        if (listeners.length) for (const l of listeners) (l as (w: Error) => void)(w);
-        else process.stderr.write(`${w.name}: ${w.message}\n`);
+        for (const l of listeners) (l as (w: Error) => void)(w);
     });
 }
 

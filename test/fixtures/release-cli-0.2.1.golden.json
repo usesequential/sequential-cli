@@ -1,0 +1,5435 @@
+{
+  "about": "Golden record of @usesequential/release-cli 0.2.1 (cli/bin/sequential-release.cjs) before it became a wrapper. Recorded by tests/cli/fixtures/record-golden.cjs: each case ran the bin as a process against fakes on 127.0.0.1.",
+  "recordedWith": {
+    "node": "v22.23.2",
+    "bin": "cli/bin/sequential-release.cjs"
+  },
+  "placeholders": {
+    "<token>": "SEQUENTIAL_RELEASES_TOKEN: a fake project access token (sq_pat_ + 32 letters or digits)",
+    "<github-token>": "GITHUB_TOKEN: a fake",
+    "<sequential>": "the fake Sequential API, http://127.0.0.1:<port>",
+    "<sequential-localhost>": "the same fake as http://localhost:<port>",
+    "<sequential-v6>": "the same fake listening on http://[::1]:<port>",
+    "<closed>": "http://127.0.0.1:<a port nothing listens on>",
+    "<github>": "the fake GitHub API, https://127.0.0.1:<port> (self-signed certificate trusted through NODE_EXTRA_CA_CERTS)",
+    "<event-file>": "GITHUB_EVENT_PATH: a file holding github.event",
+    "<repo>": "the case git repository (the bin runs with it as cwd)"
+  },
+  "harnessEnv": "Every run: PATH, HOME (an empty temp dir), LANG=C, LC_ALL=C, NODE_EXTRA_CA_CERTS, GIT_CONFIG_GLOBAL=/dev/null, GIT_CONFIG_NOSYSTEM=1, then the case env. No other variable (no GITHUB_*, no SEQUENTIAL_*).",
+  "gitSetup": "git init -b main; one empty commit per entry with the message given, author and committer \"Golden\", dates 2026-11-01T00:00:<index>Z; a tag where given.",
+  "varyingFields": "None after placeholders. The old CLI sends no released_at unless --released-at is given (the server then uses now), so no request field depends on the clock. The undici user-agent header (\"node\") depends on the Node version.",
+  "cases": [
+    {
+      "name": "no-token",
+      "args": [
+        "--version",
+        "v1.3.0"
+      ],
+      "env": {
+        "SEQUENTIAL_API_URL": "<sequential>"
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "",
+      "stderr": "SEQUENTIAL_RELEASES_TOKEN is required: a project access token (sq_pat_…) with the releases:write scope, made for one project.\n",
+      "exitCode": 1,
+      "requests": [],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "sequential-token-is-never-read",
+      "args": [
+        "--version",
+        "v1.3.0"
+      ],
+      "env": {
+        "SEQUENTIAL_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>"
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "",
+      "stderr": "SEQUENTIAL_RELEASES_TOKEN is required: a project access token (sq_pat_…) with the releases:write scope, made for one project.\n",
+      "exitCode": 1,
+      "requests": [],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "token-not-pat-shaped",
+      "args": [
+        "--version",
+        "v1.3.0"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "sq_pat_test_xxx",
+        "SEQUENTIAL_API_URL": "<sequential>"
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "Recorded release v1.3.0 (no findings named)\n",
+      "stderr": "",
+      "exitCode": 0,
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/api/releases",
+          "headers": {
+            "authorization": "Bearer sq_pat_test_xxx",
+            "content-type": "application/json",
+            "accept": "*/*",
+            "user-agent": "node"
+          },
+          "body": {
+            "version": "v1.3.0"
+          }
+        }
+      ],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "host-http-refused",
+      "args": [
+        "--version",
+        "v1.3.0",
+        "--host",
+        "http://seq.example.test"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>"
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "",
+      "stderr": "The API URL (--host or SEQUENTIAL_API_URL) must be https (localhost and 127.0.0.1 excepted) — the token it carries is a bearer secret.\n",
+      "exitCode": 1,
+      "requests": [],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "env-api-url-http-refused",
+      "args": [
+        "--version",
+        "v1.3.0"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "http://api.example.com"
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "",
+      "stderr": "The API URL (--host or SEQUENTIAL_API_URL) must be https (localhost and 127.0.0.1 excepted) — the token it carries is a bearer secret.\n",
+      "exitCode": 1,
+      "requests": [],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "host-not-a-url",
+      "args": [
+        "--version",
+        "v1.3.0",
+        "--host",
+        "not a url"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>"
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "",
+      "stderr": "The API URL (--host or SEQUENTIAL_API_URL) is not a valid URL: not a url\n",
+      "exitCode": 1,
+      "requests": [],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "host-flag-wins-over-env-and-trailing-slash-stripped",
+      "args": [
+        "--version",
+        "v1.3.0",
+        "--host",
+        "<sequential>/"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<closed>"
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "Recorded release v1.3.0 (no findings named)\n",
+      "stderr": "",
+      "exitCode": 0,
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/api/releases",
+          "headers": {
+            "authorization": "Bearer <token>",
+            "content-type": "application/json",
+            "accept": "*/*",
+            "user-agent": "node"
+          },
+          "body": {
+            "version": "v1.3.0"
+          }
+        }
+      ],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "env-api-url-localhost-http-allowed",
+      "args": [
+        "--version",
+        "v1.3.0"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential-localhost>/"
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "Recorded release v1.3.0 (no findings named)\n",
+      "stderr": "",
+      "exitCode": 0,
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/api/releases",
+          "headers": {
+            "authorization": "Bearer <token>",
+            "content-type": "application/json",
+            "accept": "*/*",
+            "user-agent": "node"
+          },
+          "body": {
+            "version": "v1.3.0"
+          }
+        }
+      ],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "env-api-url-ipv6-loopback-http",
+      "args": [
+        "--version",
+        "v1.3.0"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential-v6>"
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "",
+      "stderr": "The API URL (--host or SEQUENTIAL_API_URL) must be https (localhost and 127.0.0.1 excepted) — the token it carries is a bearer secret.\n",
+      "exitCode": 1,
+      "requests": [],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "host-with-path",
+      "args": [
+        "--version",
+        "v1.3.0",
+        "--host",
+        "<sequential>/base"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>"
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "",
+      "stderr": "not_found\n",
+      "exitCode": 1,
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/base/api/releases",
+          "headers": {
+            "authorization": "Bearer <token>",
+            "content-type": "application/json",
+            "accept": "*/*",
+            "user-agent": "node"
+          },
+          "body": {
+            "version": "v1.3.0"
+          }
+        }
+      ],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "missing-version",
+      "args": [],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>"
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "",
+      "stderr": "--version is required.\nUsage: sequential-release --version <v> [--environment <e>] [--commit-sha <sha>] [--released-at <iso>] [--title <t>]\n  [--range <prev..HEAD> | --github-changes [--base auto|<sha>]] [--project-key <key>] [--findings all|qualified] [--host <url>]\n",
+      "exitCode": 1,
+      "requests": [],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "empty-version",
+      "args": [
+        "--version",
+        ""
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>"
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "",
+      "stderr": "--version is required.\nUsage: sequential-release --version <v> [--environment <e>] [--commit-sha <sha>] [--released-at <iso>] [--title <t>]\n  [--range <prev..HEAD> | --github-changes [--base auto|<sha>]] [--project-key <key>] [--findings all|qualified] [--host <url>]\n",
+      "exitCode": 1,
+      "requests": [],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "unknown-option",
+      "args": [
+        "--version",
+        "v1.3.0",
+        "--nope",
+        "x"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>"
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "",
+      "stderr": "Unknown option: --nope\nUsage: sequential-release --version <v> [--environment <e>] [--commit-sha <sha>] [--released-at <iso>] [--title <t>]\n  [--range <prev..HEAD> | --github-changes [--base auto|<sha>]] [--project-key <key>] [--findings all|qualified] [--host <url>]\n",
+      "exitCode": 1,
+      "requests": [],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "release-subcommand-is-gone",
+      "args": [
+        "release",
+        "--version",
+        "v1.3.0"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>"
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "",
+      "stderr": "Unknown option: release\nUsage: sequential-release --version <v> [--environment <e>] [--commit-sha <sha>] [--released-at <iso>] [--title <t>]\n  [--range <prev..HEAD> | --github-changes [--base auto|<sha>]] [--project-key <key>] [--findings all|qualified] [--host <url>]\n",
+      "exitCode": 1,
+      "requests": [],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "flag-needs-a-value",
+      "args": [
+        "--version",
+        "v1.3.0",
+        "--title"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>"
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "",
+      "stderr": "--title needs a value.\nUsage: sequential-release --version <v> [--environment <e>] [--commit-sha <sha>] [--released-at <iso>] [--title <t>]\n  [--range <prev..HEAD> | --github-changes [--base auto|<sha>]] [--project-key <key>] [--findings all|qualified] [--host <url>]\n",
+      "exitCode": 1,
+      "requests": [],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "equals-form-is-unknown",
+      "args": [
+        "--version=v1.3.0"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>"
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "",
+      "stderr": "Unknown option: --version=v1.3.0\nUsage: sequential-release --version <v> [--environment <e>] [--commit-sha <sha>] [--released-at <iso>] [--title <t>]\n  [--range <prev..HEAD> | --github-changes [--base auto|<sha>]] [--project-key <key>] [--findings all|qualified] [--host <url>]\n",
+      "exitCode": 1,
+      "requests": [],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "github-changes-equals-form",
+      "args": [
+        "--version",
+        "v1.3.0",
+        "--commit-sha",
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "--github-changes=true"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>"
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "",
+      "stderr": "Unknown option: --github-changes=true\nUsage: sequential-release --version <v> [--environment <e>] [--commit-sha <sha>] [--released-at <iso>] [--title <t>]\n  [--range <prev..HEAD> | --github-changes [--base auto|<sha>]] [--project-key <key>] [--findings all|qualified] [--host <url>]\n",
+      "exitCode": 1,
+      "requests": [],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "repeated-flag-last-wins",
+      "args": [
+        "--version",
+        "v1",
+        "--version",
+        "v1.3.0"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>"
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "Recorded release v1.3.0 (no findings named)\n",
+      "stderr": "",
+      "exitCode": 0,
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/api/releases",
+          "headers": {
+            "authorization": "Bearer <token>",
+            "content-type": "application/json",
+            "accept": "*/*",
+            "user-agent": "node"
+          },
+          "body": {
+            "version": "v1.3.0"
+          }
+        }
+      ],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "value-may-start-with-dashes",
+      "args": [
+        "--version",
+        "v1.3.0",
+        "--title",
+        "--weird title"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>"
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "Recorded release v1.3.0 (no findings named)\n",
+      "stderr": "",
+      "exitCode": 0,
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/api/releases",
+          "headers": {
+            "authorization": "Bearer <token>",
+            "content-type": "application/json",
+            "accept": "*/*",
+            "user-agent": "node"
+          },
+          "body": {
+            "version": "v1.3.0",
+            "title": "--weird title"
+          }
+        }
+      ],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "help-is-an-unknown-option",
+      "args": [
+        "--help"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>"
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "",
+      "stderr": "Unknown option: --help\nUsage: sequential-release --version <v> [--environment <e>] [--commit-sha <sha>] [--released-at <iso>] [--title <t>]\n  [--range <prev..HEAD> | --github-changes [--base auto|<sha>]] [--project-key <key>] [--findings all|qualified] [--host <url>]\n",
+      "exitCode": 1,
+      "requests": [],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "equals-form-host",
+      "args": [
+        "--version",
+        "v1.3.0",
+        "--host=<sequential>"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<closed>"
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "",
+      "stderr": "Unknown option: --host=<sequential>\nUsage: sequential-release --version <v> [--environment <e>] [--commit-sha <sha>] [--released-at <iso>] [--title <t>]\n  [--range <prev..HEAD> | --github-changes [--base auto|<sha>]] [--project-key <key>] [--findings all|qualified] [--host <url>]\n",
+      "exitCode": 1,
+      "requests": [],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "equals-form-environment",
+      "args": [
+        "--version",
+        "v1.3.0",
+        "--environment=staging"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>"
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "",
+      "stderr": "Unknown option: --environment=staging\nUsage: sequential-release --version <v> [--environment <e>] [--commit-sha <sha>] [--released-at <iso>] [--title <t>]\n  [--range <prev..HEAD> | --github-changes [--base auto|<sha>]] [--project-key <key>] [--findings all|qualified] [--host <url>]\n",
+      "exitCode": 1,
+      "requests": [],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "equals-form-commit-sha",
+      "args": [
+        "--version",
+        "v1.3.0",
+        "--commit-sha=abcdef1"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>"
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "",
+      "stderr": "Unknown option: --commit-sha=abcdef1\nUsage: sequential-release --version <v> [--environment <e>] [--commit-sha <sha>] [--released-at <iso>] [--title <t>]\n  [--range <prev..HEAD> | --github-changes [--base auto|<sha>]] [--project-key <key>] [--findings all|qualified] [--host <url>]\n",
+      "exitCode": 1,
+      "requests": [],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "equals-form-sha",
+      "args": [
+        "--version",
+        "v1.3.0",
+        "--sha=abcdef1"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>"
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "",
+      "stderr": "Unknown option: --sha=abcdef1\nUsage: sequential-release --version <v> [--environment <e>] [--commit-sha <sha>] [--released-at <iso>] [--title <t>]\n  [--range <prev..HEAD> | --github-changes [--base auto|<sha>]] [--project-key <key>] [--findings all|qualified] [--host <url>]\n",
+      "exitCode": 1,
+      "requests": [],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "equals-form-released-at",
+      "args": [
+        "--version",
+        "v1.3.0",
+        "--released-at=2026-11-07T10:00:00Z"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>"
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "",
+      "stderr": "Unknown option: --released-at=2026-11-07T10:00:00Z\nUsage: sequential-release --version <v> [--environment <e>] [--commit-sha <sha>] [--released-at <iso>] [--title <t>]\n  [--range <prev..HEAD> | --github-changes [--base auto|<sha>]] [--project-key <key>] [--findings all|qualified] [--host <url>]\n",
+      "exitCode": 1,
+      "requests": [],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "equals-form-title",
+      "args": [
+        "--version",
+        "v1.3.0",
+        "--title=--x"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>"
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "",
+      "stderr": "Unknown option: --title=--x\nUsage: sequential-release --version <v> [--environment <e>] [--commit-sha <sha>] [--released-at <iso>] [--title <t>]\n  [--range <prev..HEAD> | --github-changes [--base auto|<sha>]] [--project-key <key>] [--findings all|qualified] [--host <url>]\n",
+      "exitCode": 1,
+      "requests": [],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "equals-form-range",
+      "args": [
+        "--version",
+        "v1.3.0",
+        "--range=v1..v2"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>"
+      },
+      "git": {
+        "commits": [
+          {
+            "message": "base",
+            "tag": "v1"
+          },
+          {
+            "message": "fix: scoped\n\nSequential-Finding: web#F-2, app#F-3, F-12, WEB#F-5",
+            "tag": "v2"
+          }
+        ]
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "",
+      "stderr": "Unknown option: --range=v1..v2\nUsage: sequential-release --version <v> [--environment <e>] [--commit-sha <sha>] [--released-at <iso>] [--title <t>]\n  [--range <prev..HEAD> | --github-changes [--base auto|<sha>]] [--project-key <key>] [--findings all|qualified] [--host <url>]\n",
+      "exitCode": 1,
+      "requests": [],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "equals-form-project-key",
+      "args": [
+        "--version",
+        "v1.3.0",
+        "--range",
+        "v1..v2",
+        "--project-key=web"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>"
+      },
+      "git": {
+        "commits": [
+          {
+            "message": "base",
+            "tag": "v1"
+          },
+          {
+            "message": "fix: scoped\n\nSequential-Finding: web#F-2, app#F-3, F-12, WEB#F-5",
+            "tag": "v2"
+          }
+        ]
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "",
+      "stderr": "Unknown option: --project-key=web\nUsage: sequential-release --version <v> [--environment <e>] [--commit-sha <sha>] [--released-at <iso>] [--title <t>]\n  [--range <prev..HEAD> | --github-changes [--base auto|<sha>]] [--project-key <key>] [--findings all|qualified] [--host <url>]\n",
+      "exitCode": 1,
+      "requests": [],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "equals-form-findings",
+      "args": [
+        "--version",
+        "v1.3.0",
+        "--range",
+        "v1..v2",
+        "--project-key",
+        "web",
+        "--findings=all"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>"
+      },
+      "git": {
+        "commits": [
+          {
+            "message": "base",
+            "tag": "v1"
+          },
+          {
+            "message": "fix: scoped\n\nSequential-Finding: web#F-2, app#F-3, F-12, WEB#F-5",
+            "tag": "v2"
+          }
+        ]
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "",
+      "stderr": "Unknown option: --findings=all\nUsage: sequential-release --version <v> [--environment <e>] [--commit-sha <sha>] [--released-at <iso>] [--title <t>]\n  [--range <prev..HEAD> | --github-changes [--base auto|<sha>]] [--project-key <key>] [--findings all|qualified] [--host <url>]\n",
+      "exitCode": 1,
+      "requests": [],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "equals-form-base",
+      "args": [
+        "--version",
+        "v1.3.0",
+        "--commit-sha",
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "--environment",
+        "production",
+        "--released-at",
+        "2026-11-07T10:00:00Z",
+        "--github-changes",
+        "--base=bbbbbbbbbbbb"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>",
+        "GITHUB_TOKEN": "<github-token>",
+        "GITHUB_REPOSITORY": "acme/web",
+        "GITHUB_API_URL": "<github>",
+        "GITHUB_EVENT_PATH": "<event-file>"
+      },
+      "github": {
+        "event": {
+          "deployment": {
+            "id": 42,
+            "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "environment": "Production – web"
+          }
+        },
+        "routes": {
+          "/repos/acme/web/deployments": {
+            "body": [
+              {
+                "id": 42,
+                "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              },
+              {
+                "id": 41,
+                "sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+              }
+            ]
+          },
+          "/repos/acme/web/deployments/41/statuses": {
+            "body": [
+              {
+                "state": "success"
+              }
+            ]
+          },
+          "/repos/acme/web/compare/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb...aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa": {
+            "body": {
+              "commits": [
+                {
+                  "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "commit": {
+                    "message": "m"
+                  }
+                }
+              ]
+            }
+          },
+          "/repos/acme/web/commits/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/pulls": {
+            "body": [
+              {
+                "number": 4,
+                "title": "Fix the menu",
+                "body": "Fixes F-12",
+                "html_url": "https://github.test/acme/web/pull/4",
+                "merged_at": "2026-11-06T09:00:00Z"
+              }
+            ]
+          },
+          "/repos/acme/web/compare/bbbbbbbbbbbb...aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa": {
+            "body": {
+              "commits": [
+                {
+                  "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "commit": {
+                    "message": "m"
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "",
+      "stderr": "Unknown option: --base=bbbbbbbbbbbb\nUsage: sequential-release --version <v> [--environment <e>] [--commit-sha <sha>] [--released-at <iso>] [--title <t>]\n  [--range <prev..HEAD> | --github-changes [--base auto|<sha>]] [--project-key <key>] [--findings all|qualified] [--host <url>]\n",
+      "exitCode": 1,
+      "requests": [],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "json-flag",
+      "args": [
+        "--version",
+        "v1.3.0",
+        "--json"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>"
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "",
+      "stderr": "Unknown option: --json\nUsage: sequential-release --version <v> [--environment <e>] [--commit-sha <sha>] [--released-at <iso>] [--title <t>]\n  [--range <prev..HEAD> | --github-changes [--base auto|<sha>]] [--project-key <key>] [--findings all|qualified] [--host <url>]\n",
+      "exitCode": 1,
+      "requests": [],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "dry-run-without-token",
+      "args": [
+        "--version",
+        "v1.3.0",
+        "--dry-run"
+      ],
+      "env": {
+        "SEQUENTIAL_API_URL": "<sequential>"
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "",
+      "stderr": "SEQUENTIAL_RELEASES_TOKEN is required: a project access token (sq_pat_…) with the releases:write scope, made for one project.\n",
+      "exitCode": 1,
+      "requests": [],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "finding-flag",
+      "args": [
+        "--version",
+        "v1.3.0",
+        "--finding",
+        "F-1"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>"
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "",
+      "stderr": "Unknown option: --finding\nUsage: sequential-release --version <v> [--environment <e>] [--commit-sha <sha>] [--released-at <iso>] [--title <t>]\n  [--range <prev..HEAD> | --github-changes [--base auto|<sha>]] [--project-key <key>] [--findings all|qualified] [--host <url>]\n",
+      "exitCode": 1,
+      "requests": [],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "project-flag",
+      "args": [
+        "--version",
+        "v1.3.0",
+        "--project",
+        "web"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>"
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "",
+      "stderr": "Unknown option: --project\nUsage: sequential-release --version <v> [--environment <e>] [--commit-sha <sha>] [--released-at <iso>] [--title <t>]\n  [--range <prev..HEAD> | --github-changes [--base auto|<sha>]] [--project-key <key>] [--findings all|qualified] [--host <url>]\n",
+      "exitCode": 1,
+      "requests": [],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "timeout-flag",
+      "args": [
+        "--version",
+        "v1.3.0",
+        "--timeout",
+        "30"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>"
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "",
+      "stderr": "Unknown option: --timeout\nUsage: sequential-release --version <v> [--environment <e>] [--commit-sha <sha>] [--released-at <iso>] [--title <t>]\n  [--range <prev..HEAD> | --github-changes [--base auto|<sha>]] [--project-key <key>] [--findings all|qualified] [--host <url>]\n",
+      "exitCode": 1,
+      "requests": [],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "help-after-version",
+      "args": [
+        "--version",
+        "v1.3.0",
+        "--help"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>"
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "",
+      "stderr": "Unknown option: --help\nUsage: sequential-release --version <v> [--environment <e>] [--commit-sha <sha>] [--released-at <iso>] [--title <t>]\n  [--range <prev..HEAD> | --github-changes [--base auto|<sha>]] [--project-key <key>] [--findings all|qualified] [--host <url>]\n",
+      "exitCode": 1,
+      "requests": [],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "success-minimal",
+      "args": [
+        "--version",
+        "v1.3.0"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>"
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "Recorded release v1.3.0 (no findings named)\n",
+      "stderr": "",
+      "exitCode": 0,
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/api/releases",
+          "headers": {
+            "authorization": "Bearer <token>",
+            "content-type": "application/json",
+            "accept": "*/*",
+            "user-agent": "node"
+          },
+          "body": {
+            "version": "v1.3.0"
+          }
+        }
+      ],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "success-every-field",
+      "args": [
+        "--version",
+        "v1.3.0",
+        "--environment",
+        "production",
+        "--commit-sha",
+        "abc1234",
+        "--released-at",
+        "2026-11-07T10:00:00Z",
+        "--title",
+        "Clearer checkout errors"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>"
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "Recorded release v1.3.0 (no findings named)\n",
+      "stderr": "",
+      "exitCode": 0,
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/api/releases",
+          "headers": {
+            "authorization": "Bearer <token>",
+            "content-type": "application/json",
+            "accept": "*/*",
+            "user-agent": "node"
+          },
+          "body": {
+            "version": "v1.3.0",
+            "environment": "production",
+            "commit_sha": "abc1234",
+            "released_at": "2026-11-07T10:00:00Z",
+            "title": "Clearer checkout errors"
+          }
+        }
+      ],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "sha-alias",
+      "args": [
+        "--version",
+        "v1.3.0",
+        "--sha",
+        "abc1234"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>"
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "Recorded release v1.3.0 (no findings named)\n",
+      "stderr": "",
+      "exitCode": 0,
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/api/releases",
+          "headers": {
+            "authorization": "Bearer <token>",
+            "content-type": "application/json",
+            "accept": "*/*",
+            "user-agent": "node"
+          },
+          "body": {
+            "version": "v1.3.0",
+            "commit_sha": "abc1234"
+          }
+        }
+      ],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "empty-values-are-left-out",
+      "args": [
+        "--version",
+        "v1.3.0",
+        "--environment",
+        "",
+        "--commit-sha",
+        "",
+        "--released-at",
+        "",
+        "--title",
+        ""
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>"
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "Recorded release v1.3.0 (no findings named)\n",
+      "stderr": "",
+      "exitCode": 0,
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/api/releases",
+          "headers": {
+            "authorization": "Bearer <token>",
+            "content-type": "application/json",
+            "accept": "*/*",
+            "user-agent": "node"
+          },
+          "body": {
+            "version": "v1.3.0"
+          }
+        }
+      ],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "commit-sha-not-checked-without-github-changes",
+      "args": [
+        "--version",
+        "v1.3.0",
+        "--commit-sha",
+        "not-a-sha"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>"
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "Recorded release v1.3.0 (no findings named)\n",
+      "stderr": "",
+      "exitCode": 0,
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/api/releases",
+          "headers": {
+            "authorization": "Bearer <token>",
+            "content-type": "application/json",
+            "accept": "*/*",
+            "user-agent": "node"
+          },
+          "body": {
+            "version": "v1.3.0",
+            "commit_sha": "not-a-sha"
+          }
+        }
+      ],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "success-body-ignored-200",
+      "args": [
+        "--version",
+        "v1.3.0"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>"
+      },
+      "serverResponses": {
+        "release": {
+          "status": 200,
+          "body": "ok"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "Recorded release v1.3.0 (no findings named)\n",
+      "stderr": "",
+      "exitCode": 0,
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/api/releases",
+          "headers": {
+            "authorization": "Bearer <token>",
+            "content-type": "application/json",
+            "accept": "*/*",
+            "user-agent": "node"
+          },
+          "body": {
+            "version": "v1.3.0"
+          }
+        }
+      ],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "range-and-github-changes",
+      "args": [
+        "--version",
+        "v1.3.0",
+        "--commit-sha",
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "--environment",
+        "production",
+        "--released-at",
+        "2026-11-07T10:00:00Z",
+        "--github-changes",
+        "--range",
+        "a..b"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>",
+        "GITHUB_TOKEN": "<github-token>",
+        "GITHUB_REPOSITORY": "acme/web",
+        "GITHUB_API_URL": "<github>",
+        "GITHUB_EVENT_PATH": "<event-file>"
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "",
+      "stderr": "--range and --github-changes both name the commits: use one.\n",
+      "exitCode": 1,
+      "requests": [],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "base-without-github-changes",
+      "args": [
+        "--version",
+        "v1.3.0",
+        "--base",
+        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>"
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "",
+      "stderr": "--base needs --github-changes.\n",
+      "exitCode": 1,
+      "requests": [],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "github-changes-without-commit-sha",
+      "args": [
+        "--version",
+        "v1.3.0",
+        "--github-changes"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>"
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "",
+      "stderr": "--github-changes needs --commit-sha: the deployed commit (7-40 hex characters).\n",
+      "exitCode": 1,
+      "requests": [],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "github-changes-commit-sha-not-hex",
+      "args": [
+        "--version",
+        "v1.3.0",
+        "--commit-sha",
+        "main",
+        "--github-changes"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>"
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "",
+      "stderr": "--github-changes needs --commit-sha: the deployed commit (7-40 hex characters).\n",
+      "exitCode": 1,
+      "requests": [],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "base-not-a-sha",
+      "args": [
+        "--version",
+        "v1.3.0",
+        "--commit-sha",
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "--environment",
+        "production",
+        "--released-at",
+        "2026-11-07T10:00:00Z",
+        "--github-changes",
+        "--base",
+        "main"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>"
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "",
+      "stderr": "--base: auto, or a commit sha (7-40 hex characters).\n",
+      "exitCode": 1,
+      "requests": [],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "bad-project-key",
+      "args": [
+        "--version",
+        "v1.3.0",
+        "--project-key",
+        "a b"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>"
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "",
+      "stderr": "--project-key: letters, digits, . _ - (up to 64), as written before # in \"Fixes web#F-12\"\n",
+      "exitCode": 1,
+      "requests": [],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "bad-findings",
+      "args": [
+        "--version",
+        "v1.3.0",
+        "--findings",
+        "some"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>"
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "",
+      "stderr": "--findings: all or qualified\n",
+      "exitCode": 1,
+      "requests": [],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "range-is-an-option",
+      "args": [
+        "--version",
+        "v1.3.0",
+        "--range",
+        "--upload-pack=evil"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>"
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "",
+      "stderr": "--range must be a git revision range, not an option: --upload-pack=evil\n",
+      "exitCode": 1,
+      "requests": [],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "range-zero-base-then-option",
+      "args": [
+        "--version",
+        "v1.3.0",
+        "--range",
+        "0000000000000000000000000000000000000000..--output=x"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>"
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "",
+      "stderr": "--range must be a git revision range, not an option: 0000000000000000000000000000000000000000..--output=x\n",
+      "exitCode": 1,
+      "requests": [],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "version-checked-before-project-key",
+      "args": [
+        "--project-key",
+        "a b"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>"
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "",
+      "stderr": "--version is required.\nUsage: sequential-release --version <v> [--environment <e>] [--commit-sha <sha>] [--released-at <iso>] [--title <t>]\n  [--range <prev..HEAD> | --github-changes [--base auto|<sha>]] [--project-key <key>] [--findings all|qualified] [--host <url>]\n",
+      "exitCode": 1,
+      "requests": [],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "range-trailers",
+      "args": [
+        "--version",
+        "v1.3.0",
+        "--range",
+        "v1.2.0..v1.3.0"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>"
+      },
+      "git": {
+        "commits": [
+          {
+            "message": "base",
+            "tag": "v1.2.0"
+          },
+          {
+            "message": "fix: checkout\n\nsee also Sequential-Finding: F-99 (mid-line: not a trailer)\nsequential-finding: F-14, F-12"
+          },
+          {
+            "message": "fix: the menu\n\nSequential-Finding: F-12"
+          },
+          {
+            "message": "chore: release",
+            "tag": "v1.3.0"
+          }
+        ]
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "Recorded release v1.3.0 (2 findings: F-12, F-14)\n",
+      "stderr": "",
+      "exitCode": 0,
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/api/releases",
+          "headers": {
+            "authorization": "Bearer <token>",
+            "content-type": "application/json",
+            "accept": "*/*",
+            "user-agent": "node"
+          },
+          "body": {
+            "version": "v1.3.0",
+            "finding_ids": [
+              "F-12",
+              "F-14"
+            ]
+          }
+        }
+      ],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "range-no-trailers",
+      "args": [
+        "--version",
+        "v1.3.0",
+        "--range",
+        "v1.2.0..v1.2.0"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>"
+      },
+      "git": {
+        "commits": [
+          {
+            "message": "base",
+            "tag": "v1.2.0"
+          },
+          {
+            "message": "fix: checkout\n\nsee also Sequential-Finding: F-99 (mid-line: not a trailer)\nsequential-finding: F-14, F-12"
+          },
+          {
+            "message": "fix: the menu\n\nSequential-Finding: F-12"
+          },
+          {
+            "message": "chore: release",
+            "tag": "v1.3.0"
+          }
+        ]
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "Recorded release v1.3.0 (no findings named)\n",
+      "stderr": "",
+      "exitCode": 0,
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/api/releases",
+          "headers": {
+            "authorization": "Bearer <token>",
+            "content-type": "application/json",
+            "accept": "*/*",
+            "user-agent": "node"
+          },
+          "body": {
+            "version": "v1.3.0"
+          }
+        }
+      ],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "range-zero-base-reads-head-only",
+      "args": [
+        "--version",
+        "v1.3.0",
+        "--range",
+        "0000000000000000000000000000000000000000..HEAD"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>"
+      },
+      "git": {
+        "commits": [
+          {
+            "message": "older\n\nSequential-Finding: F-1"
+          },
+          {
+            "message": "head\n\nSequential-Finding: F-3"
+          }
+        ]
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "Recorded release v1.3.0 (1 finding: F-3)\n",
+      "stderr": "",
+      "exitCode": 0,
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/api/releases",
+          "headers": {
+            "authorization": "Bearer <token>",
+            "content-type": "application/json",
+            "accept": "*/*",
+            "user-agent": "node"
+          },
+          "body": {
+            "version": "v1.3.0",
+            "finding_ids": [
+              "F-3"
+            ]
+          }
+        }
+      ],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "range-zero-base-64-and-empty-head",
+      "args": [
+        "--version",
+        "v1.3.0",
+        "--range",
+        "0000000000000000000000000000000000000000000000000000000000000000..."
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>"
+      },
+      "git": {
+        "commits": [
+          {
+            "message": "older\n\nSequential-Finding: F-1"
+          },
+          {
+            "message": "head\n\nSequential-Finding: F-3"
+          }
+        ]
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "Recorded release v1.3.0 (1 finding: F-3)\n",
+      "stderr": "",
+      "exitCode": 0,
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/api/releases",
+          "headers": {
+            "authorization": "Bearer <token>",
+            "content-type": "application/json",
+            "accept": "*/*",
+            "user-agent": "node"
+          },
+          "body": {
+            "version": "v1.3.0",
+            "finding_ids": [
+              "F-3"
+            ]
+          }
+        }
+      ],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "range-bad-revision",
+      "args": [
+        "--version",
+        "v1.3.0",
+        "--range",
+        "nope..HEAD"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>"
+      },
+      "git": {
+        "commits": [
+          {
+            "message": "only"
+          }
+        ]
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "",
+      "stderr": "fatal: ambiguous argument 'nope..HEAD': unknown revision or path not in the working tree.\nUse '--' to separate paths from revisions, like this:\n'git <command> [<revision>...] -- [<file>...]'\ngit log failed: Command failed: git log --format=%B nope..HEAD\nfatal: ambiguous argument 'nope..HEAD': unknown revision or path not in the working tree.\nUse '--' to separate paths from revisions, like this:\n'git <command> [<revision>...] -- [<file>...]'\n\n",
+      "exitCode": 1,
+      "requests": [],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "range-unqualified-only-by-default",
+      "args": [
+        "--version",
+        "v1.3.0",
+        "--range",
+        "v1..v2"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>"
+      },
+      "git": {
+        "commits": [
+          {
+            "message": "base",
+            "tag": "v1"
+          },
+          {
+            "message": "fix: scoped\n\nSequential-Finding: web#F-2, app#F-3, F-12, WEB#F-5",
+            "tag": "v2"
+          }
+        ]
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "Recorded release v1.3.0 (1 finding: F-12)\n",
+      "stderr": "",
+      "exitCode": 0,
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/api/releases",
+          "headers": {
+            "authorization": "Bearer <token>",
+            "content-type": "application/json",
+            "accept": "*/*",
+            "user-agent": "node"
+          },
+          "body": {
+            "version": "v1.3.0",
+            "finding_ids": [
+              "F-12"
+            ]
+          }
+        }
+      ],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "range-project-key-qualified-only",
+      "args": [
+        "--version",
+        "v1.3.0",
+        "--range",
+        "v1..v2",
+        "--project-key",
+        "web"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>"
+      },
+      "git": {
+        "commits": [
+          {
+            "message": "base",
+            "tag": "v1"
+          },
+          {
+            "message": "fix: scoped\n\nSequential-Finding: web#F-2, app#F-3, F-12, WEB#F-5",
+            "tag": "v2"
+          }
+        ]
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "Recorded release v1.3.0 (2 findings: F-2, F-5)\n",
+      "stderr": "",
+      "exitCode": 0,
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/api/releases",
+          "headers": {
+            "authorization": "Bearer <token>",
+            "content-type": "application/json",
+            "accept": "*/*",
+            "user-agent": "node"
+          },
+          "body": {
+            "version": "v1.3.0",
+            "finding_ids": [
+              "F-2",
+              "F-5"
+            ]
+          }
+        }
+      ],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "range-project-key-findings-all",
+      "args": [
+        "--version",
+        "v1.3.0",
+        "--range",
+        "v1..v2",
+        "--project-key",
+        "Web",
+        "--findings",
+        "all"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>"
+      },
+      "git": {
+        "commits": [
+          {
+            "message": "base",
+            "tag": "v1"
+          },
+          {
+            "message": "fix: scoped\n\nSequential-Finding: web#F-2, app#F-3, F-12, WEB#F-5",
+            "tag": "v2"
+          }
+        ]
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "Recorded release v1.3.0 (3 findings: F-2, F-12, F-5)\n",
+      "stderr": "",
+      "exitCode": 0,
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/api/releases",
+          "headers": {
+            "authorization": "Bearer <token>",
+            "content-type": "application/json",
+            "accept": "*/*",
+            "user-agent": "node"
+          },
+          "body": {
+            "version": "v1.3.0",
+            "finding_ids": [
+              "F-2",
+              "F-12",
+              "F-5"
+            ]
+          }
+        }
+      ],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "range-findings-qualified-no-key",
+      "args": [
+        "--version",
+        "v1.3.0",
+        "--range",
+        "v1..v2",
+        "--findings",
+        "qualified"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>"
+      },
+      "git": {
+        "commits": [
+          {
+            "message": "base",
+            "tag": "v1"
+          },
+          {
+            "message": "fix: scoped\n\nSequential-Finding: web#F-2, app#F-3, F-12, WEB#F-5",
+            "tag": "v2"
+          }
+        ]
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "Recorded release v1.3.0 (no findings named)\n",
+      "stderr": "",
+      "exitCode": 0,
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/api/releases",
+          "headers": {
+            "authorization": "Bearer <token>",
+            "content-type": "application/json",
+            "accept": "*/*",
+            "user-agent": "node"
+          },
+          "body": {
+            "version": "v1.3.0"
+          }
+        }
+      ],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "range-bad-ids-skipped",
+      "args": [
+        "--version",
+        "v1.3.0",
+        "--range",
+        "HEAD~1..HEAD"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>"
+      },
+      "git": {
+        "commits": [
+          {
+            "message": "base"
+          },
+          {
+            "message": "x\n\nSequential-Finding: F-012, F-0, f-4, F-7, F-1234567890\nSequential-Finding:\nF-8"
+          }
+        ]
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "Recorded release v1.3.0 (1 finding: F-7)\n",
+      "stderr": "",
+      "exitCode": 0,
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/api/releases",
+          "headers": {
+            "authorization": "Bearer <token>",
+            "content-type": "application/json",
+            "accept": "*/*",
+            "user-agent": "node"
+          },
+          "body": {
+            "version": "v1.3.0",
+            "finding_ids": [
+              "F-7"
+            ]
+          }
+        }
+      ],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "range-capped-at-50",
+      "args": [
+        "--version",
+        "v1.3.0",
+        "--range",
+        "HEAD~1..HEAD"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>"
+      },
+      "git": {
+        "commits": [
+          {
+            "message": "base"
+          },
+          {
+            "message": "many\n\nSequential-Finding: F-1, F-2, F-3, F-4, F-5, F-6, F-7, F-8, F-9, F-10, F-11, F-12, F-13, F-14, F-15, F-16, F-17, F-18, F-19, F-20, F-21, F-22, F-23, F-24, F-25, F-26, F-27, F-28, F-29, F-30, F-31, F-32, F-33, F-34, F-35, F-36, F-37, F-38, F-39, F-40, F-41, F-42, F-43, F-44, F-45, F-46, F-47, F-48, F-49, F-50, F-51, F-52, F-53, F-54, F-55"
+          }
+        ]
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "Recorded release v1.3.0 (50 findings: F-1, F-2, F-3, F-4, F-5, F-6, F-7, F-8, F-9, F-10, F-11, F-12, F-13, F-14, F-15, F-16, F-17, F-18, F-19, F-20, F-21, F-22, F-23, F-24, F-25, F-26, F-27, F-28, F-29, F-30, F-31, F-32, F-33, F-34, F-35, F-36, F-37, F-38, F-39, F-40, F-41, F-42, F-43, F-44, F-45, F-46, F-47, F-48, F-49, F-50)\n",
+      "stderr": "",
+      "exitCode": 0,
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/api/releases",
+          "headers": {
+            "authorization": "Bearer <token>",
+            "content-type": "application/json",
+            "accept": "*/*",
+            "user-agent": "node"
+          },
+          "body": {
+            "version": "v1.3.0",
+            "finding_ids": [
+              "F-1",
+              "F-2",
+              "F-3",
+              "F-4",
+              "F-5",
+              "F-6",
+              "F-7",
+              "F-8",
+              "F-9",
+              "F-10",
+              "F-11",
+              "F-12",
+              "F-13",
+              "F-14",
+              "F-15",
+              "F-16",
+              "F-17",
+              "F-18",
+              "F-19",
+              "F-20",
+              "F-21",
+              "F-22",
+              "F-23",
+              "F-24",
+              "F-25",
+              "F-26",
+              "F-27",
+              "F-28",
+              "F-29",
+              "F-30",
+              "F-31",
+              "F-32",
+              "F-33",
+              "F-34",
+              "F-35",
+              "F-36",
+              "F-37",
+              "F-38",
+              "F-39",
+              "F-40",
+              "F-41",
+              "F-42",
+              "F-43",
+              "F-44",
+              "F-45",
+              "F-46",
+              "F-47",
+              "F-48",
+              "F-49",
+              "F-50"
+            ]
+          }
+        }
+      ],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "refusal-400",
+      "args": [
+        "--version",
+        "bad version"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>"
+      },
+      "serverResponses": {
+        "release": {
+          "status": 400,
+          "body": {
+            "error": "bad_request",
+            "message": "version: 1-64 printable ASCII characters"
+          }
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "",
+      "stderr": "version: 1-64 printable ASCII characters\n",
+      "exitCode": 1,
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/api/releases",
+          "headers": {
+            "authorization": "Bearer <token>",
+            "content-type": "application/json",
+            "accept": "*/*",
+            "user-agent": "node"
+          },
+          "body": {
+            "version": "bad version"
+          }
+        }
+      ],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "refusal-400-error-only",
+      "args": [
+        "--version",
+        "v1.3.0"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>"
+      },
+      "serverResponses": {
+        "release": {
+          "status": 400,
+          "body": {
+            "error": "bad_request"
+          }
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "",
+      "stderr": "bad_request\n",
+      "exitCode": 1,
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/api/releases",
+          "headers": {
+            "authorization": "Bearer <token>",
+            "content-type": "application/json",
+            "accept": "*/*",
+            "user-agent": "node"
+          },
+          "body": {
+            "version": "v1.3.0"
+          }
+        }
+      ],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "refusal-401",
+      "args": [
+        "--version",
+        "v1.3.0"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>"
+      },
+      "serverResponses": {
+        "release": {
+          "status": 401,
+          "body": {
+            "error": "unauthorized",
+            "message": "The token is not valid."
+          }
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "",
+      "stderr": "The token is not valid.\n",
+      "exitCode": 1,
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/api/releases",
+          "headers": {
+            "authorization": "Bearer <token>",
+            "content-type": "application/json",
+            "accept": "*/*",
+            "user-agent": "node"
+          },
+          "body": {
+            "version": "v1.3.0"
+          }
+        }
+      ],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "refusal-403-scope",
+      "args": [
+        "--version",
+        "v1.3.0"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>"
+      },
+      "serverResponses": {
+        "release": {
+          "status": 403,
+          "body": {
+            "error": "forbidden",
+            "message": "This token cannot record releases: it needs releases:write."
+          }
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "",
+      "stderr": "This token cannot record releases: it needs releases:write.\n",
+      "exitCode": 1,
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/api/releases",
+          "headers": {
+            "authorization": "Bearer <token>",
+            "content-type": "application/json",
+            "accept": "*/*",
+            "user-agent": "node"
+          },
+          "body": {
+            "version": "v1.3.0"
+          }
+        }
+      ],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "rate-limited-429",
+      "args": [
+        "--version",
+        "v1.3.0"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>"
+      },
+      "serverResponses": {
+        "release": {
+          "status": 429,
+          "headers": {
+            "retry-after": "30"
+          },
+          "body": {
+            "error": "rate_limited",
+            "message": "Too many requests for this project. Try again shortly.",
+            "retry_after_sec": 30
+          }
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "",
+      "stderr": "Too many requests for this project. Try again shortly.\n",
+      "exitCode": 1,
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/api/releases",
+          "headers": {
+            "authorization": "Bearer <token>",
+            "content-type": "application/json",
+            "accept": "*/*",
+            "user-agent": "node"
+          },
+          "body": {
+            "version": "v1.3.0"
+          }
+        }
+      ],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "server-error-500-json",
+      "args": [
+        "--version",
+        "v1.3.0"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>"
+      },
+      "serverResponses": {
+        "release": {
+          "status": 500,
+          "body": {
+            "error": "internal_error"
+          }
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "",
+      "stderr": "internal_error\n",
+      "exitCode": 1,
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/api/releases",
+          "headers": {
+            "authorization": "Bearer <token>",
+            "content-type": "application/json",
+            "accept": "*/*",
+            "user-agent": "node"
+          },
+          "body": {
+            "version": "v1.3.0"
+          }
+        }
+      ],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "gateway-502-not-json",
+      "args": [
+        "--version",
+        "v1.3.0"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>"
+      },
+      "serverResponses": {
+        "release": {
+          "status": 502,
+          "body": "gateway down"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "",
+      "stderr": "HTTP 502\n",
+      "exitCode": 1,
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/api/releases",
+          "headers": {
+            "authorization": "Bearer <token>",
+            "content-type": "application/json",
+            "accept": "*/*",
+            "user-agent": "node"
+          },
+          "body": {
+            "version": "v1.3.0"
+          }
+        }
+      ],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "unavailable-503-json",
+      "args": [
+        "--version",
+        "v1.3.0"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>"
+      },
+      "serverResponses": {
+        "release": {
+          "status": 503,
+          "headers": {
+            "retry-after": "5"
+          },
+          "body": {
+            "error": "unavailable",
+            "message": "Sequential is busy. Try again shortly."
+          }
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "",
+      "stderr": "Sequential is busy. Try again shortly.\n",
+      "exitCode": 1,
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/api/releases",
+          "headers": {
+            "authorization": "Bearer <token>",
+            "content-type": "application/json",
+            "accept": "*/*",
+            "user-agent": "node"
+          },
+          "body": {
+            "version": "v1.3.0"
+          }
+        }
+      ],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "not-found-404-not-json",
+      "args": [
+        "--version",
+        "v1.3.0"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>"
+      },
+      "serverResponses": {
+        "release": {
+          "status": 404,
+          "body": "Not Found"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "",
+      "stderr": "HTTP 404\n",
+      "exitCode": 1,
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/api/releases",
+          "headers": {
+            "authorization": "Bearer <token>",
+            "content-type": "application/json",
+            "accept": "*/*",
+            "user-agent": "node"
+          },
+          "body": {
+            "version": "v1.3.0"
+          }
+        }
+      ],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "redirect-307-not-followed",
+      "args": [
+        "--version",
+        "v1.3.0"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>"
+      },
+      "serverResponses": {
+        "release": {
+          "redirect": 307
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "",
+      "stderr": "fetch failed\n",
+      "exitCode": 1,
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/api/releases",
+          "headers": {
+            "authorization": "Bearer <token>",
+            "content-type": "application/json",
+            "accept": "*/*",
+            "user-agent": "node"
+          },
+          "body": {
+            "version": "v1.3.0"
+          }
+        }
+      ],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "redirect-301-not-followed",
+      "args": [
+        "--version",
+        "v1.3.0"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>"
+      },
+      "serverResponses": {
+        "release": {
+          "redirect": 301
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "",
+      "stderr": "fetch failed\n",
+      "exitCode": 1,
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/api/releases",
+          "headers": {
+            "authorization": "Bearer <token>",
+            "content-type": "application/json",
+            "accept": "*/*",
+            "user-agent": "node"
+          },
+          "body": {
+            "version": "v1.3.0"
+          }
+        }
+      ],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "network-error",
+      "args": [
+        "--version",
+        "v1.3.0"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<closed>"
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "",
+      "stderr": "fetch failed\n",
+      "exitCode": 1,
+      "requests": [],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "gh-deployment-three-changes",
+      "args": [
+        "--version",
+        "v1.3.0",
+        "--commit-sha",
+        "c0ffee1111111111111111111111111111111111",
+        "--environment",
+        "production",
+        "--released-at",
+        "2026-11-07T10:00:00Z",
+        "--github-changes",
+        "--title",
+        "web"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>",
+        "GITHUB_TOKEN": "<github-token>",
+        "GITHUB_REPOSITORY": "acme/web",
+        "GITHUB_API_URL": "<github>",
+        "GITHUB_EVENT_PATH": "<event-file>"
+      },
+      "github": {
+        "event": {
+          "deployment": {
+            "id": 42,
+            "sha": "c0ffee1111111111111111111111111111111111",
+            "environment": "Production – web"
+          }
+        },
+        "routes": {
+          "/repos/acme/web/deployments": {
+            "body": [
+              {
+                "id": 42,
+                "sha": "c0ffee1111111111111111111111111111111111"
+              },
+              {
+                "id": 41,
+                "sha": "dddddddddddddddddddddddddddddddddddddddd"
+              },
+              {
+                "id": 40,
+                "sha": "3f2a9c1000000000000000000000000000000000"
+              }
+            ]
+          },
+          "/repos/acme/web/deployments/41/statuses": {
+            "body": [
+              {
+                "state": "failure"
+              }
+            ]
+          },
+          "/repos/acme/web/deployments/40/statuses": {
+            "body": [
+              {
+                "state": "success"
+              }
+            ]
+          },
+          "/repos/acme/web/compare/3f2a9c1000000000000000000000000000000000...c0ffee1111111111111111111111111111111111": {
+            "body": {
+              "commits": [
+                {
+                  "sha": "1111111eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                  "commit": {
+                    "message": "first"
+                  }
+                },
+                {
+                  "sha": "2222222eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                  "commit": {
+                    "message": "second"
+                  }
+                },
+                {
+                  "sha": "c0ffee1111111111111111111111111111111111",
+                  "commit": {
+                    "message": "third\n\nSequential-Finding: F-12"
+                  }
+                }
+              ]
+            }
+          },
+          "/repos/acme/web/commits/c0ffee1111111111111111111111111111111111/pulls": {
+            "body": [
+              {
+                "number": 7,
+                "title": "Fix the menu",
+                "body": "Fixes F-14",
+                "html_url": "https://github.test/acme/web/pull/7",
+                "merged_at": "2026-11-06T09:00:00Z"
+              }
+            ]
+          },
+          "/repos/acme/web/commits/2222222eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee/pulls": {
+            "body": [
+              {
+                "number": 6,
+                "title": "Clearer checkout errors",
+                "body": "",
+                "html_url": "https://github.test/acme/web/pull/6",
+                "merged_at": "2026-11-06T09:00:00Z"
+              },
+              {
+                "number": 99,
+                "title": "Not merged",
+                "body": "Fixes F-77",
+                "html_url": "https://github.test/acme/web/pull/99",
+                "merged_at": null
+              }
+            ]
+          },
+          "/repos/acme/web/commits/1111111eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee/pulls": {
+            "body": [
+              {
+                "number": 5,
+                "title": "Faster search",
+                "body": "nothing",
+                "html_url": "https://github.test/acme/web/pull/5",
+                "merged_at": "2026-11-06T09:00:00Z"
+              },
+              {
+                "number": 6,
+                "title": "Clearer checkout errors",
+                "body": "",
+                "html_url": "https://github.test/acme/web/pull/6",
+                "merged_at": "2026-11-06T09:00:00Z"
+              }
+            ]
+          }
+        }
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "Recorded release v1.3.0 (2 findings: F-12, F-14; 3 changes since 3f2a9c1)\n",
+      "stderr": "",
+      "exitCode": 0,
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/api/releases",
+          "headers": {
+            "authorization": "Bearer <token>",
+            "content-type": "application/json",
+            "accept": "*/*",
+            "user-agent": "node"
+          },
+          "body": {
+            "version": "v1.3.0",
+            "environment": "production",
+            "commit_sha": "c0ffee1111111111111111111111111111111111",
+            "finding_ids": [
+              "F-12",
+              "F-14"
+            ],
+            "released_at": "2026-11-07T10:00:00Z",
+            "title": "web",
+            "changes": [
+              {
+                "title": "Fix the menu",
+                "url": "https://github.test/acme/web/pull/7",
+                "number": 7
+              },
+              {
+                "title": "Clearer checkout errors",
+                "url": "https://github.test/acme/web/pull/6",
+                "number": 6
+              },
+              {
+                "title": "Faster search",
+                "url": "https://github.test/acme/web/pull/5",
+                "number": 5
+              }
+            ]
+          }
+        }
+      ],
+      "githubRequests": [
+        {
+          "method": "GET",
+          "path": "/repos/acme/web/deployments?environment=Production%20%E2%80%93%20web&per_page=30",
+          "headers": {
+            "authorization": "Bearer <github-token>",
+            "accept": "application/vnd.github+json",
+            "x-github-api-version": "2022-11-28"
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/repos/acme/web/deployments/41/statuses?per_page=1",
+          "headers": {
+            "authorization": "Bearer <github-token>",
+            "accept": "application/vnd.github+json",
+            "x-github-api-version": "2022-11-28"
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/repos/acme/web/deployments/40/statuses?per_page=1",
+          "headers": {
+            "authorization": "Bearer <github-token>",
+            "accept": "application/vnd.github+json",
+            "x-github-api-version": "2022-11-28"
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/repos/acme/web/compare/3f2a9c1000000000000000000000000000000000...c0ffee1111111111111111111111111111111111",
+          "headers": {
+            "authorization": "Bearer <github-token>",
+            "accept": "application/vnd.github+json",
+            "x-github-api-version": "2022-11-28"
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/repos/acme/web/commits/c0ffee1111111111111111111111111111111111/pulls",
+          "headers": {
+            "authorization": "Bearer <github-token>",
+            "accept": "application/vnd.github+json",
+            "x-github-api-version": "2022-11-28"
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/repos/acme/web/commits/2222222eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee/pulls",
+          "headers": {
+            "authorization": "Bearer <github-token>",
+            "accept": "application/vnd.github+json",
+            "x-github-api-version": "2022-11-28"
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/repos/acme/web/commits/1111111eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee/pulls",
+          "headers": {
+            "authorization": "Bearer <github-token>",
+            "accept": "application/vnd.github+json",
+            "x-github-api-version": "2022-11-28"
+          }
+        }
+      ],
+      "tokenPrinted": false
+    },
+    {
+      "name": "gh-action-style-base-auto",
+      "args": [
+        "--version",
+        "v1.3.0",
+        "--commit-sha",
+        "c0ffee1111111111111111111111111111111111",
+        "--environment",
+        "production",
+        "--released-at",
+        "2026-11-07T10:00:00Z",
+        "--github-changes",
+        "--base",
+        "auto"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>",
+        "GITHUB_TOKEN": "<github-token>",
+        "GITHUB_REPOSITORY": "acme/web",
+        "GITHUB_API_URL": "<github>",
+        "GITHUB_EVENT_PATH": "<event-file>"
+      },
+      "github": {
+        "event": {
+          "deployment": {
+            "id": 42,
+            "sha": "c0ffee1111111111111111111111111111111111",
+            "environment": "Production – web"
+          }
+        },
+        "routes": {
+          "/repos/acme/web/deployments": {
+            "body": [
+              {
+                "id": 42,
+                "sha": "c0ffee1111111111111111111111111111111111"
+              },
+              {
+                "id": 41,
+                "sha": "dddddddddddddddddddddddddddddddddddddddd"
+              },
+              {
+                "id": 40,
+                "sha": "3f2a9c1000000000000000000000000000000000"
+              }
+            ]
+          },
+          "/repos/acme/web/deployments/41/statuses": {
+            "body": [
+              {
+                "state": "failure"
+              }
+            ]
+          },
+          "/repos/acme/web/deployments/40/statuses": {
+            "body": [
+              {
+                "state": "success"
+              }
+            ]
+          },
+          "/repos/acme/web/compare/3f2a9c1000000000000000000000000000000000...c0ffee1111111111111111111111111111111111": {
+            "body": {
+              "commits": [
+                {
+                  "sha": "1111111eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                  "commit": {
+                    "message": "first"
+                  }
+                },
+                {
+                  "sha": "2222222eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                  "commit": {
+                    "message": "second"
+                  }
+                },
+                {
+                  "sha": "c0ffee1111111111111111111111111111111111",
+                  "commit": {
+                    "message": "third\n\nSequential-Finding: F-12"
+                  }
+                }
+              ]
+            }
+          },
+          "/repos/acme/web/commits/c0ffee1111111111111111111111111111111111/pulls": {
+            "body": [
+              {
+                "number": 7,
+                "title": "Fix the menu",
+                "body": "Fixes F-14",
+                "html_url": "https://github.test/acme/web/pull/7",
+                "merged_at": "2026-11-06T09:00:00Z"
+              }
+            ]
+          },
+          "/repos/acme/web/commits/2222222eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee/pulls": {
+            "body": [
+              {
+                "number": 6,
+                "title": "Clearer checkout errors",
+                "body": "",
+                "html_url": "https://github.test/acme/web/pull/6",
+                "merged_at": "2026-11-06T09:00:00Z"
+              },
+              {
+                "number": 99,
+                "title": "Not merged",
+                "body": "Fixes F-77",
+                "html_url": "https://github.test/acme/web/pull/99",
+                "merged_at": null
+              }
+            ]
+          },
+          "/repos/acme/web/commits/1111111eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee/pulls": {
+            "body": [
+              {
+                "number": 5,
+                "title": "Faster search",
+                "body": "nothing",
+                "html_url": "https://github.test/acme/web/pull/5",
+                "merged_at": "2026-11-06T09:00:00Z"
+              },
+              {
+                "number": 6,
+                "title": "Clearer checkout errors",
+                "body": "",
+                "html_url": "https://github.test/acme/web/pull/6",
+                "merged_at": "2026-11-06T09:00:00Z"
+              }
+            ]
+          }
+        }
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "Recorded release v1.3.0 (2 findings: F-12, F-14; 3 changes since 3f2a9c1)\n",
+      "stderr": "",
+      "exitCode": 0,
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/api/releases",
+          "headers": {
+            "authorization": "Bearer <token>",
+            "content-type": "application/json",
+            "accept": "*/*",
+            "user-agent": "node"
+          },
+          "body": {
+            "version": "v1.3.0",
+            "environment": "production",
+            "commit_sha": "c0ffee1111111111111111111111111111111111",
+            "finding_ids": [
+              "F-12",
+              "F-14"
+            ],
+            "released_at": "2026-11-07T10:00:00Z",
+            "changes": [
+              {
+                "title": "Fix the menu",
+                "url": "https://github.test/acme/web/pull/7",
+                "number": 7
+              },
+              {
+                "title": "Clearer checkout errors",
+                "url": "https://github.test/acme/web/pull/6",
+                "number": 6
+              },
+              {
+                "title": "Faster search",
+                "url": "https://github.test/acme/web/pull/5",
+                "number": 5
+              }
+            ]
+          }
+        }
+      ],
+      "githubRequests": [
+        {
+          "method": "GET",
+          "path": "/repos/acme/web/deployments?environment=Production%20%E2%80%93%20web&per_page=30",
+          "headers": {
+            "authorization": "Bearer <github-token>",
+            "accept": "application/vnd.github+json",
+            "x-github-api-version": "2022-11-28"
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/repos/acme/web/deployments/41/statuses?per_page=1",
+          "headers": {
+            "authorization": "Bearer <github-token>",
+            "accept": "application/vnd.github+json",
+            "x-github-api-version": "2022-11-28"
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/repos/acme/web/deployments/40/statuses?per_page=1",
+          "headers": {
+            "authorization": "Bearer <github-token>",
+            "accept": "application/vnd.github+json",
+            "x-github-api-version": "2022-11-28"
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/repos/acme/web/compare/3f2a9c1000000000000000000000000000000000...c0ffee1111111111111111111111111111111111",
+          "headers": {
+            "authorization": "Bearer <github-token>",
+            "accept": "application/vnd.github+json",
+            "x-github-api-version": "2022-11-28"
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/repos/acme/web/commits/c0ffee1111111111111111111111111111111111/pulls",
+          "headers": {
+            "authorization": "Bearer <github-token>",
+            "accept": "application/vnd.github+json",
+            "x-github-api-version": "2022-11-28"
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/repos/acme/web/commits/2222222eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee/pulls",
+          "headers": {
+            "authorization": "Bearer <github-token>",
+            "accept": "application/vnd.github+json",
+            "x-github-api-version": "2022-11-28"
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/repos/acme/web/commits/1111111eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee/pulls",
+          "headers": {
+            "authorization": "Bearer <github-token>",
+            "accept": "application/vnd.github+json",
+            "x-github-api-version": "2022-11-28"
+          }
+        }
+      ],
+      "tokenPrinted": false
+    },
+    {
+      "name": "gh-compare-404-still-recorded",
+      "args": [
+        "--version",
+        "v1.3.0",
+        "--commit-sha",
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "--environment",
+        "production",
+        "--released-at",
+        "2026-11-07T10:00:00Z",
+        "--github-changes"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>",
+        "GITHUB_TOKEN": "<github-token>",
+        "GITHUB_REPOSITORY": "acme/web",
+        "GITHUB_API_URL": "<github>",
+        "GITHUB_EVENT_PATH": "<event-file>"
+      },
+      "github": {
+        "event": {
+          "deployment": {
+            "id": 42,
+            "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "environment": "Production – web"
+          }
+        },
+        "routes": {
+          "/repos/acme/web/deployments": {
+            "body": [
+              {
+                "id": 42,
+                "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              },
+              {
+                "id": 41,
+                "sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+              }
+            ]
+          },
+          "/repos/acme/web/deployments/41/statuses": {
+            "body": [
+              {
+                "state": "success"
+              }
+            ]
+          },
+          "/repos/acme/web/compare/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb...aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa": {
+            "status": 404,
+            "body": {
+              "message": "No common ancestor"
+            }
+          },
+          "/repos/acme/web/commits/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/pulls": {
+            "body": [
+              {
+                "number": 4,
+                "title": "Fix the menu",
+                "body": "Fixes F-12",
+                "html_url": "https://github.test/acme/web/pull/4",
+                "merged_at": "2026-11-06T09:00:00Z"
+              }
+            ]
+          }
+        }
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "Recorded release v1.3.0 (no findings named)\n",
+      "stderr": "GitHub: could not compare bbbbbbb...aaaaaaa (HTTP 404); the release is recorded without changes or finding ids from GitHub.\n",
+      "exitCode": 0,
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/api/releases",
+          "headers": {
+            "authorization": "Bearer <token>",
+            "content-type": "application/json",
+            "accept": "*/*",
+            "user-agent": "node"
+          },
+          "body": {
+            "version": "v1.3.0",
+            "environment": "production",
+            "commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "released_at": "2026-11-07T10:00:00Z"
+          }
+        }
+      ],
+      "githubRequests": [
+        {
+          "method": "GET",
+          "path": "/repos/acme/web/deployments?environment=Production%20%E2%80%93%20web&per_page=30",
+          "headers": {
+            "authorization": "Bearer <github-token>",
+            "accept": "application/vnd.github+json",
+            "x-github-api-version": "2022-11-28"
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/repos/acme/web/deployments/41/statuses?per_page=1",
+          "headers": {
+            "authorization": "Bearer <github-token>",
+            "accept": "application/vnd.github+json",
+            "x-github-api-version": "2022-11-28"
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/repos/acme/web/compare/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb...aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "headers": {
+            "authorization": "Bearer <github-token>",
+            "accept": "application/vnd.github+json",
+            "x-github-api-version": "2022-11-28"
+          }
+        }
+      ],
+      "tokenPrinted": false
+    },
+    {
+      "name": "gh-no-github-token",
+      "args": [
+        "--version",
+        "v1.3.0",
+        "--commit-sha",
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "--environment",
+        "production",
+        "--released-at",
+        "2026-11-07T10:00:00Z",
+        "--github-changes"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>",
+        "GITHUB_TOKEN": "",
+        "GITHUB_REPOSITORY": "acme/web",
+        "GITHUB_API_URL": "<github>",
+        "GITHUB_EVENT_PATH": "<event-file>"
+      },
+      "github": {
+        "event": {
+          "deployment": {
+            "id": 42,
+            "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "environment": "Production – web"
+          }
+        },
+        "routes": {
+          "/repos/acme/web/deployments": {
+            "body": [
+              {
+                "id": 42,
+                "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              },
+              {
+                "id": 41,
+                "sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+              }
+            ]
+          },
+          "/repos/acme/web/deployments/41/statuses": {
+            "body": [
+              {
+                "state": "success"
+              }
+            ]
+          },
+          "/repos/acme/web/compare/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb...aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa": {
+            "body": {
+              "commits": [
+                {
+                  "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "commit": {
+                    "message": "m"
+                  }
+                }
+              ]
+            }
+          },
+          "/repos/acme/web/commits/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/pulls": {
+            "body": [
+              {
+                "number": 4,
+                "title": "Fix the menu",
+                "body": "Fixes F-12",
+                "html_url": "https://github.test/acme/web/pull/4",
+                "merged_at": "2026-11-06T09:00:00Z"
+              }
+            ]
+          }
+        }
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "Recorded release v1.3.0 (no findings named)\n",
+      "stderr": "GitHub: GITHUB_TOKEN is not set: pass it to the step (env: GITHUB_TOKEN: ${{ github.token }}); the release is recorded without changes or finding ids from GitHub.\n",
+      "exitCode": 0,
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/api/releases",
+          "headers": {
+            "authorization": "Bearer <token>",
+            "content-type": "application/json",
+            "accept": "*/*",
+            "user-agent": "node"
+          },
+          "body": {
+            "version": "v1.3.0",
+            "environment": "production",
+            "commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "released_at": "2026-11-07T10:00:00Z"
+          }
+        }
+      ],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "gh-no-repository",
+      "args": [
+        "--version",
+        "v1.3.0",
+        "--commit-sha",
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "--environment",
+        "production",
+        "--released-at",
+        "2026-11-07T10:00:00Z",
+        "--github-changes"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>",
+        "GITHUB_TOKEN": "<github-token>",
+        "GITHUB_API_URL": "<github>"
+      },
+      "github": {
+        "routes": {
+          "/repos/acme/web/deployments": {
+            "body": [
+              {
+                "id": 42,
+                "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              },
+              {
+                "id": 41,
+                "sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+              }
+            ]
+          },
+          "/repos/acme/web/deployments/41/statuses": {
+            "body": [
+              {
+                "state": "success"
+              }
+            ]
+          },
+          "/repos/acme/web/compare/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb...aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa": {
+            "body": {
+              "commits": [
+                {
+                  "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "commit": {
+                    "message": "m"
+                  }
+                }
+              ]
+            }
+          },
+          "/repos/acme/web/commits/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/pulls": {
+            "body": [
+              {
+                "number": 4,
+                "title": "Fix the menu",
+                "body": "Fixes F-12",
+                "html_url": "https://github.test/acme/web/pull/4",
+                "merged_at": "2026-11-06T09:00:00Z"
+              }
+            ]
+          }
+        }
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "Recorded release v1.3.0 (no findings named)\n",
+      "stderr": "GitHub: GITHUB_REPOSITORY is not set to owner/name; the release is recorded without changes or finding ids from GitHub.\n",
+      "exitCode": 0,
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/api/releases",
+          "headers": {
+            "authorization": "Bearer <token>",
+            "content-type": "application/json",
+            "accept": "*/*",
+            "user-agent": "node"
+          },
+          "body": {
+            "version": "v1.3.0",
+            "environment": "production",
+            "commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "released_at": "2026-11-07T10:00:00Z"
+          }
+        }
+      ],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "gh-api-url-http-refused",
+      "args": [
+        "--version",
+        "v1.3.0",
+        "--commit-sha",
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "--environment",
+        "production",
+        "--released-at",
+        "2026-11-07T10:00:00Z",
+        "--github-changes"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>",
+        "GITHUB_TOKEN": "<github-token>",
+        "GITHUB_REPOSITORY": "acme/web",
+        "GITHUB_API_URL": "http://127.0.0.1:9",
+        "GITHUB_EVENT_PATH": "<event-file>"
+      },
+      "github": {
+        "event": {
+          "deployment": {
+            "id": 42,
+            "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "environment": "Production – web"
+          }
+        },
+        "routes": {
+          "/repos/acme/web/deployments": {
+            "body": [
+              {
+                "id": 42,
+                "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              },
+              {
+                "id": 41,
+                "sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+              }
+            ]
+          },
+          "/repos/acme/web/deployments/41/statuses": {
+            "body": [
+              {
+                "state": "success"
+              }
+            ]
+          },
+          "/repos/acme/web/compare/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb...aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa": {
+            "body": {
+              "commits": [
+                {
+                  "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "commit": {
+                    "message": "m"
+                  }
+                }
+              ]
+            }
+          },
+          "/repos/acme/web/commits/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/pulls": {
+            "body": [
+              {
+                "number": 4,
+                "title": "Fix the menu",
+                "body": "Fixes F-12",
+                "html_url": "https://github.test/acme/web/pull/4",
+                "merged_at": "2026-11-06T09:00:00Z"
+              }
+            ]
+          }
+        }
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "Recorded release v1.3.0 (no findings named)\n",
+      "stderr": "GitHub: GITHUB_API_URL must be https: GITHUB_TOKEN travels on every request; the release is recorded without changes or finding ids from GitHub.\n",
+      "exitCode": 0,
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/api/releases",
+          "headers": {
+            "authorization": "Bearer <token>",
+            "content-type": "application/json",
+            "accept": "*/*",
+            "user-agent": "node"
+          },
+          "body": {
+            "version": "v1.3.0",
+            "environment": "production",
+            "commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "released_at": "2026-11-07T10:00:00Z"
+          }
+        }
+      ],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "gh-api-url-not-a-url",
+      "args": [
+        "--version",
+        "v1.3.0",
+        "--commit-sha",
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "--environment",
+        "production",
+        "--released-at",
+        "2026-11-07T10:00:00Z",
+        "--github-changes"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>",
+        "GITHUB_TOKEN": "<github-token>",
+        "GITHUB_REPOSITORY": "acme/web",
+        "GITHUB_API_URL": "not a url",
+        "GITHUB_EVENT_PATH": "<event-file>"
+      },
+      "github": {
+        "event": {
+          "deployment": {
+            "id": 42,
+            "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "environment": "Production – web"
+          }
+        },
+        "routes": {
+          "/repos/acme/web/deployments": {
+            "body": [
+              {
+                "id": 42,
+                "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              },
+              {
+                "id": 41,
+                "sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+              }
+            ]
+          },
+          "/repos/acme/web/deployments/41/statuses": {
+            "body": [
+              {
+                "state": "success"
+              }
+            ]
+          },
+          "/repos/acme/web/compare/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb...aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa": {
+            "body": {
+              "commits": [
+                {
+                  "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "commit": {
+                    "message": "m"
+                  }
+                }
+              ]
+            }
+          },
+          "/repos/acme/web/commits/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/pulls": {
+            "body": [
+              {
+                "number": 4,
+                "title": "Fix the menu",
+                "body": "Fixes F-12",
+                "html_url": "https://github.test/acme/web/pull/4",
+                "merged_at": "2026-11-06T09:00:00Z"
+              }
+            ]
+          }
+        }
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "Recorded release v1.3.0 (no findings named)\n",
+      "stderr": "GitHub: GITHUB_API_URL is not a valid URL; the release is recorded without changes or finding ids from GitHub.\n",
+      "exitCode": 0,
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/api/releases",
+          "headers": {
+            "authorization": "Bearer <token>",
+            "content-type": "application/json",
+            "accept": "*/*",
+            "user-agent": "node"
+          },
+          "body": {
+            "version": "v1.3.0",
+            "environment": "production",
+            "commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "released_at": "2026-11-07T10:00:00Z"
+          }
+        }
+      ],
+      "githubRequests": [],
+      "tokenPrinted": false
+    },
+    {
+      "name": "gh-no-earlier-release-head-alone",
+      "args": [
+        "--version",
+        "v1.3.0",
+        "--commit-sha",
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "--environment",
+        "production",
+        "--released-at",
+        "2026-11-07T10:00:00Z",
+        "--github-changes"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>",
+        "GITHUB_TOKEN": "<github-token>",
+        "GITHUB_REPOSITORY": "acme/web",
+        "GITHUB_API_URL": "<github>",
+        "GITHUB_EVENT_PATH": "<event-file>"
+      },
+      "github": {
+        "event": {
+          "deployment": {
+            "id": 42,
+            "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "environment": "Production – web"
+          }
+        },
+        "routes": {
+          "/repos/acme/web/deployments": {
+            "body": [
+              {
+                "id": 42,
+                "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              },
+              {
+                "id": 41,
+                "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              }
+            ]
+          },
+          "/repos/acme/web/commits/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa": {
+            "body": {
+              "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "commit": {
+                "message": "first\n\nSequential-Finding: F-3"
+              }
+            }
+          },
+          "/repos/acme/web/commits/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/pulls": {
+            "body": [
+              {
+                "number": 1,
+                "title": "Closes F-4",
+                "body": "",
+                "html_url": "https://github.test/acme/web/pull/1",
+                "merged_at": "2026-11-06T09:00:00Z"
+              }
+            ]
+          }
+        }
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "Recorded release v1.3.0 (2 findings: F-3, F-4; 1 change from aaaaaaa alone (no earlier release found))\n",
+      "stderr": "",
+      "exitCode": 0,
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/api/releases",
+          "headers": {
+            "authorization": "Bearer <token>",
+            "content-type": "application/json",
+            "accept": "*/*",
+            "user-agent": "node"
+          },
+          "body": {
+            "version": "v1.3.0",
+            "environment": "production",
+            "commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "finding_ids": [
+              "F-3",
+              "F-4"
+            ],
+            "released_at": "2026-11-07T10:00:00Z",
+            "changes": [
+              {
+                "title": "Closes F-4",
+                "url": "https://github.test/acme/web/pull/1",
+                "number": 1
+              }
+            ]
+          }
+        }
+      ],
+      "githubRequests": [
+        {
+          "method": "GET",
+          "path": "/repos/acme/web/deployments?environment=Production%20%E2%80%93%20web&per_page=30",
+          "headers": {
+            "authorization": "Bearer <github-token>",
+            "accept": "application/vnd.github+json",
+            "x-github-api-version": "2022-11-28"
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/repos/acme/web/commits/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "headers": {
+            "authorization": "Bearer <github-token>",
+            "accept": "application/vnd.github+json",
+            "x-github-api-version": "2022-11-28"
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/repos/acme/web/commits/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/pulls",
+          "headers": {
+            "authorization": "Bearer <github-token>",
+            "accept": "application/vnd.github+json",
+            "x-github-api-version": "2022-11-28"
+          }
+        }
+      ],
+      "tokenPrinted": false
+    },
+    {
+      "name": "gh-push-event-before",
+      "args": [
+        "--version",
+        "v1.3.0",
+        "--commit-sha",
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "--environment",
+        "production",
+        "--released-at",
+        "2026-11-07T10:00:00Z",
+        "--github-changes"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>",
+        "GITHUB_TOKEN": "<github-token>",
+        "GITHUB_REPOSITORY": "acme/web",
+        "GITHUB_API_URL": "<github>",
+        "GITHUB_EVENT_PATH": "<event-file>"
+      },
+      "github": {
+        "event": {
+          "before": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+          "after": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "routes": {
+          "/repos/acme/web/deployments": {
+            "body": [
+              {
+                "id": 42,
+                "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              },
+              {
+                "id": 41,
+                "sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+              }
+            ]
+          },
+          "/repos/acme/web/deployments/41/statuses": {
+            "body": [
+              {
+                "state": "success"
+              }
+            ]
+          },
+          "/repos/acme/web/compare/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb...aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa": {
+            "body": {
+              "commits": [
+                {
+                  "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "commit": {
+                    "message": "m"
+                  }
+                }
+              ]
+            }
+          },
+          "/repos/acme/web/commits/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/pulls": {
+            "body": [
+              {
+                "number": 4,
+                "title": "Fix the menu",
+                "body": "Closes F-3, F-4 and F-5. Resolved: F-9 and prefixes F-1",
+                "html_url": "https://github.test/acme/web/pull/4",
+                "merged_at": "2026-11-06T09:00:00Z"
+              }
+            ]
+          }
+        }
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "Recorded release v1.3.0 (4 findings: F-3, F-4, F-5, F-9; 1 change since bbbbbbb)\n",
+      "stderr": "",
+      "exitCode": 0,
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/api/releases",
+          "headers": {
+            "authorization": "Bearer <token>",
+            "content-type": "application/json",
+            "accept": "*/*",
+            "user-agent": "node"
+          },
+          "body": {
+            "version": "v1.3.0",
+            "environment": "production",
+            "commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "finding_ids": [
+              "F-3",
+              "F-4",
+              "F-5",
+              "F-9"
+            ],
+            "released_at": "2026-11-07T10:00:00Z",
+            "changes": [
+              {
+                "title": "Fix the menu",
+                "url": "https://github.test/acme/web/pull/4",
+                "number": 4
+              }
+            ]
+          }
+        }
+      ],
+      "githubRequests": [
+        {
+          "method": "GET",
+          "path": "/repos/acme/web/compare/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb...aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "headers": {
+            "authorization": "Bearer <github-token>",
+            "accept": "application/vnd.github+json",
+            "x-github-api-version": "2022-11-28"
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/repos/acme/web/commits/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/pulls",
+          "headers": {
+            "authorization": "Bearer <github-token>",
+            "accept": "application/vnd.github+json",
+            "x-github-api-version": "2022-11-28"
+          }
+        }
+      ],
+      "tokenPrinted": false
+    },
+    {
+      "name": "gh-push-event-zero-before",
+      "args": [
+        "--version",
+        "v1.3.0",
+        "--commit-sha",
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "--environment",
+        "production",
+        "--released-at",
+        "2026-11-07T10:00:00Z",
+        "--github-changes"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>",
+        "GITHUB_TOKEN": "<github-token>",
+        "GITHUB_REPOSITORY": "acme/web",
+        "GITHUB_API_URL": "<github>",
+        "GITHUB_EVENT_PATH": "<event-file>"
+      },
+      "github": {
+        "event": {
+          "before": "0000000000000000000000000000000000000000",
+          "after": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "routes": {
+          "/repos/acme/web/commits/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa": {
+            "body": {
+              "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "commit": {
+                "message": "first"
+              }
+            }
+          },
+          "/repos/acme/web/commits/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/pulls": {
+            "body": []
+          }
+        }
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "Recorded release v1.3.0 (no findings named; 0 changes from aaaaaaa alone (no earlier release found))\n",
+      "stderr": "",
+      "exitCode": 0,
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/api/releases",
+          "headers": {
+            "authorization": "Bearer <token>",
+            "content-type": "application/json",
+            "accept": "*/*",
+            "user-agent": "node"
+          },
+          "body": {
+            "version": "v1.3.0",
+            "environment": "production",
+            "commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "released_at": "2026-11-07T10:00:00Z"
+          }
+        }
+      ],
+      "githubRequests": [
+        {
+          "method": "GET",
+          "path": "/repos/acme/web/commits/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "headers": {
+            "authorization": "Bearer <github-token>",
+            "accept": "application/vnd.github+json",
+            "x-github-api-version": "2022-11-28"
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/repos/acme/web/commits/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/pulls",
+          "headers": {
+            "authorization": "Bearer <github-token>",
+            "accept": "application/vnd.github+json",
+            "x-github-api-version": "2022-11-28"
+          }
+        }
+      ],
+      "tokenPrinted": false
+    },
+    {
+      "name": "gh-no-event-file",
+      "args": [
+        "--version",
+        "v1.3.0",
+        "--commit-sha",
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "--environment",
+        "production",
+        "--released-at",
+        "2026-11-07T10:00:00Z",
+        "--github-changes"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>",
+        "GITHUB_TOKEN": "<github-token>",
+        "GITHUB_REPOSITORY": "acme/web",
+        "GITHUB_API_URL": "<github>",
+        "GITHUB_EVENT_PATH": "<event-file>.missing"
+      },
+      "github": {
+        "routes": {
+          "/repos/acme/web/commits/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa": {
+            "body": {
+              "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "commit": {
+                "message": "first"
+              }
+            }
+          },
+          "/repos/acme/web/commits/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/pulls": {
+            "body": [
+              {
+                "number": 2,
+                "title": "One",
+                "body": "fixed F-6",
+                "html_url": "https://github.test/acme/web/pull/2",
+                "merged_at": "2026-11-06T09:00:00Z"
+              }
+            ]
+          }
+        }
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "Recorded release v1.3.0 (1 finding: F-6; 1 change from aaaaaaa alone (no earlier release found))\n",
+      "stderr": "",
+      "exitCode": 0,
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/api/releases",
+          "headers": {
+            "authorization": "Bearer <token>",
+            "content-type": "application/json",
+            "accept": "*/*",
+            "user-agent": "node"
+          },
+          "body": {
+            "version": "v1.3.0",
+            "environment": "production",
+            "commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "finding_ids": [
+              "F-6"
+            ],
+            "released_at": "2026-11-07T10:00:00Z",
+            "changes": [
+              {
+                "title": "One",
+                "url": "https://github.test/acme/web/pull/2",
+                "number": 2
+              }
+            ]
+          }
+        }
+      ],
+      "githubRequests": [
+        {
+          "method": "GET",
+          "path": "/repos/acme/web/commits/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "headers": {
+            "authorization": "Bearer <github-token>",
+            "accept": "application/vnd.github+json",
+            "x-github-api-version": "2022-11-28"
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/repos/acme/web/commits/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/pulls",
+          "headers": {
+            "authorization": "Bearer <github-token>",
+            "accept": "application/vnd.github+json",
+            "x-github-api-version": "2022-11-28"
+          }
+        }
+      ],
+      "tokenPrinted": false
+    },
+    {
+      "name": "gh-explicit-base",
+      "args": [
+        "--version",
+        "v1.3.0",
+        "--commit-sha",
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "--environment",
+        "production",
+        "--released-at",
+        "2026-11-07T10:00:00Z",
+        "--github-changes",
+        "--base",
+        "bbbbbbbbbbbb"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>",
+        "GITHUB_TOKEN": "<github-token>",
+        "GITHUB_REPOSITORY": "acme/web",
+        "GITHUB_API_URL": "<github>",
+        "GITHUB_EVENT_PATH": "<event-file>"
+      },
+      "github": {
+        "event": {
+          "deployment": {
+            "id": 42,
+            "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "environment": "Production – web"
+          }
+        },
+        "routes": {
+          "/repos/acme/web/deployments": {
+            "body": [
+              {
+                "id": 42,
+                "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              },
+              {
+                "id": 41,
+                "sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+              }
+            ]
+          },
+          "/repos/acme/web/deployments/41/statuses": {
+            "body": [
+              {
+                "state": "success"
+              }
+            ]
+          },
+          "/repos/acme/web/compare/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb...aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa": {
+            "body": {
+              "commits": [
+                {
+                  "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "commit": {
+                    "message": "m"
+                  }
+                }
+              ]
+            }
+          },
+          "/repos/acme/web/commits/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/pulls": {
+            "body": [
+              {
+                "number": 4,
+                "title": "Fix the menu",
+                "body": "Fixes F-12",
+                "html_url": "https://github.test/acme/web/pull/4",
+                "merged_at": "2026-11-06T09:00:00Z"
+              }
+            ]
+          },
+          "/repos/acme/web/compare/bbbbbbbbbbbb...aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa": {
+            "body": {
+              "commits": [
+                {
+                  "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "commit": {
+                    "message": "m"
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "Recorded release v1.3.0 (1 finding: F-12; 1 change since bbbbbbb)\n",
+      "stderr": "",
+      "exitCode": 0,
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/api/releases",
+          "headers": {
+            "authorization": "Bearer <token>",
+            "content-type": "application/json",
+            "accept": "*/*",
+            "user-agent": "node"
+          },
+          "body": {
+            "version": "v1.3.0",
+            "environment": "production",
+            "commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "finding_ids": [
+              "F-12"
+            ],
+            "released_at": "2026-11-07T10:00:00Z",
+            "changes": [
+              {
+                "title": "Fix the menu",
+                "url": "https://github.test/acme/web/pull/4",
+                "number": 4
+              }
+            ]
+          }
+        }
+      ],
+      "githubRequests": [
+        {
+          "method": "GET",
+          "path": "/repos/acme/web/compare/bbbbbbbbbbbb...aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "headers": {
+            "authorization": "Bearer <github-token>",
+            "accept": "application/vnd.github+json",
+            "x-github-api-version": "2022-11-28"
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/repos/acme/web/commits/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/pulls",
+          "headers": {
+            "authorization": "Bearer <github-token>",
+            "accept": "application/vnd.github+json",
+            "x-github-api-version": "2022-11-28"
+          }
+        }
+      ],
+      "tokenPrinted": false
+    },
+    {
+      "name": "gh-project-key-web",
+      "args": [
+        "--version",
+        "v1.3.0",
+        "--commit-sha",
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "--environment",
+        "production",
+        "--released-at",
+        "2026-11-07T10:00:00Z",
+        "--github-changes",
+        "--project-key",
+        "web"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>",
+        "GITHUB_TOKEN": "<github-token>",
+        "GITHUB_REPOSITORY": "acme/web",
+        "GITHUB_API_URL": "<github>",
+        "GITHUB_EVENT_PATH": "<event-file>"
+      },
+      "github": {
+        "event": {
+          "deployment": {
+            "id": 42,
+            "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "environment": "Production – web"
+          }
+        },
+        "routes": {
+          "/repos/acme/web/deployments": {
+            "body": [
+              {
+                "id": 42,
+                "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              },
+              {
+                "id": 41,
+                "sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+              }
+            ]
+          },
+          "/repos/acme/web/deployments/41/statuses": {
+            "body": [
+              {
+                "state": "success"
+              }
+            ]
+          },
+          "/repos/acme/web/compare/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb...aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa": {
+            "body": {
+              "commits": [
+                {
+                  "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "commit": {
+                    "message": "m"
+                  }
+                }
+              ]
+            }
+          },
+          "/repos/acme/web/commits/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/pulls": {
+            "body": [
+              {
+                "number": 4,
+                "title": "Fix the menu",
+                "body": "Fixes web#F-2, app#F-3 and F-12",
+                "html_url": "https://github.test/acme/web/pull/4",
+                "merged_at": "2026-11-06T09:00:00Z"
+              }
+            ]
+          }
+        }
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "Recorded release v1.3.0 (1 finding: F-2; 1 change since bbbbbbb)\n",
+      "stderr": "",
+      "exitCode": 0,
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/api/releases",
+          "headers": {
+            "authorization": "Bearer <token>",
+            "content-type": "application/json",
+            "accept": "*/*",
+            "user-agent": "node"
+          },
+          "body": {
+            "version": "v1.3.0",
+            "environment": "production",
+            "commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "finding_ids": [
+              "F-2"
+            ],
+            "released_at": "2026-11-07T10:00:00Z",
+            "changes": [
+              {
+                "title": "Fix the menu",
+                "url": "https://github.test/acme/web/pull/4",
+                "number": 4
+              }
+            ]
+          }
+        }
+      ],
+      "githubRequests": [
+        {
+          "method": "GET",
+          "path": "/repos/acme/web/deployments?environment=Production%20%E2%80%93%20web&per_page=30",
+          "headers": {
+            "authorization": "Bearer <github-token>",
+            "accept": "application/vnd.github+json",
+            "x-github-api-version": "2022-11-28"
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/repos/acme/web/deployments/41/statuses?per_page=1",
+          "headers": {
+            "authorization": "Bearer <github-token>",
+            "accept": "application/vnd.github+json",
+            "x-github-api-version": "2022-11-28"
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/repos/acme/web/compare/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb...aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "headers": {
+            "authorization": "Bearer <github-token>",
+            "accept": "application/vnd.github+json",
+            "x-github-api-version": "2022-11-28"
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/repos/acme/web/commits/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/pulls",
+          "headers": {
+            "authorization": "Bearer <github-token>",
+            "accept": "application/vnd.github+json",
+            "x-github-api-version": "2022-11-28"
+          }
+        }
+      ],
+      "tokenPrinted": false
+    },
+    {
+      "name": "gh-project-key-findings-all",
+      "args": [
+        "--version",
+        "v1.3.0",
+        "--commit-sha",
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "--environment",
+        "production",
+        "--released-at",
+        "2026-11-07T10:00:00Z",
+        "--github-changes",
+        "--project-key",
+        "web",
+        "--findings",
+        "all"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>",
+        "GITHUB_TOKEN": "<github-token>",
+        "GITHUB_REPOSITORY": "acme/web",
+        "GITHUB_API_URL": "<github>",
+        "GITHUB_EVENT_PATH": "<event-file>"
+      },
+      "github": {
+        "event": {
+          "deployment": {
+            "id": 42,
+            "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "environment": "Production – web"
+          }
+        },
+        "routes": {
+          "/repos/acme/web/deployments": {
+            "body": [
+              {
+                "id": 42,
+                "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              },
+              {
+                "id": 41,
+                "sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+              }
+            ]
+          },
+          "/repos/acme/web/deployments/41/statuses": {
+            "body": [
+              {
+                "state": "success"
+              }
+            ]
+          },
+          "/repos/acme/web/compare/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb...aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa": {
+            "body": {
+              "commits": [
+                {
+                  "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "commit": {
+                    "message": "m"
+                  }
+                }
+              ]
+            }
+          },
+          "/repos/acme/web/commits/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/pulls": {
+            "body": [
+              {
+                "number": 4,
+                "title": "Fix the menu",
+                "body": "Fixes web#F-2, app#F-3 and F-12",
+                "html_url": "https://github.test/acme/web/pull/4",
+                "merged_at": "2026-11-06T09:00:00Z"
+              }
+            ]
+          }
+        }
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "Recorded release v1.3.0 (2 findings: F-2, F-12; 1 change since bbbbbbb)\n",
+      "stderr": "",
+      "exitCode": 0,
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/api/releases",
+          "headers": {
+            "authorization": "Bearer <token>",
+            "content-type": "application/json",
+            "accept": "*/*",
+            "user-agent": "node"
+          },
+          "body": {
+            "version": "v1.3.0",
+            "environment": "production",
+            "commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "finding_ids": [
+              "F-2",
+              "F-12"
+            ],
+            "released_at": "2026-11-07T10:00:00Z",
+            "changes": [
+              {
+                "title": "Fix the menu",
+                "url": "https://github.test/acme/web/pull/4",
+                "number": 4
+              }
+            ]
+          }
+        }
+      ],
+      "githubRequests": [
+        {
+          "method": "GET",
+          "path": "/repos/acme/web/deployments?environment=Production%20%E2%80%93%20web&per_page=30",
+          "headers": {
+            "authorization": "Bearer <github-token>",
+            "accept": "application/vnd.github+json",
+            "x-github-api-version": "2022-11-28"
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/repos/acme/web/deployments/41/statuses?per_page=1",
+          "headers": {
+            "authorization": "Bearer <github-token>",
+            "accept": "application/vnd.github+json",
+            "x-github-api-version": "2022-11-28"
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/repos/acme/web/compare/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb...aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "headers": {
+            "authorization": "Bearer <github-token>",
+            "accept": "application/vnd.github+json",
+            "x-github-api-version": "2022-11-28"
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/repos/acme/web/commits/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/pulls",
+          "headers": {
+            "authorization": "Bearer <github-token>",
+            "accept": "application/vnd.github+json",
+            "x-github-api-version": "2022-11-28"
+          }
+        }
+      ],
+      "tokenPrinted": false
+    },
+    {
+      "name": "gh-no-key-unqualified-only",
+      "args": [
+        "--version",
+        "v1.3.0",
+        "--commit-sha",
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "--environment",
+        "production",
+        "--released-at",
+        "2026-11-07T10:00:00Z",
+        "--github-changes"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>",
+        "GITHUB_TOKEN": "<github-token>",
+        "GITHUB_REPOSITORY": "acme/web",
+        "GITHUB_API_URL": "<github>",
+        "GITHUB_EVENT_PATH": "<event-file>"
+      },
+      "github": {
+        "event": {
+          "deployment": {
+            "id": 42,
+            "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "environment": "Production – web"
+          }
+        },
+        "routes": {
+          "/repos/acme/web/deployments": {
+            "body": [
+              {
+                "id": 42,
+                "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              },
+              {
+                "id": 41,
+                "sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+              }
+            ]
+          },
+          "/repos/acme/web/deployments/41/statuses": {
+            "body": [
+              {
+                "state": "success"
+              }
+            ]
+          },
+          "/repos/acme/web/compare/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb...aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa": {
+            "body": {
+              "commits": [
+                {
+                  "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "commit": {
+                    "message": "m"
+                  }
+                }
+              ]
+            }
+          },
+          "/repos/acme/web/commits/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/pulls": {
+            "body": [
+              {
+                "number": 4,
+                "title": "Fix the menu",
+                "body": "Fixes web#F-2, app#F-3 and F-12",
+                "html_url": "https://github.test/acme/web/pull/4",
+                "merged_at": "2026-11-06T09:00:00Z"
+              }
+            ]
+          }
+        }
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "Recorded release v1.3.0 (1 finding: F-12; 1 change since bbbbbbb)\n",
+      "stderr": "",
+      "exitCode": 0,
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/api/releases",
+          "headers": {
+            "authorization": "Bearer <token>",
+            "content-type": "application/json",
+            "accept": "*/*",
+            "user-agent": "node"
+          },
+          "body": {
+            "version": "v1.3.0",
+            "environment": "production",
+            "commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "finding_ids": [
+              "F-12"
+            ],
+            "released_at": "2026-11-07T10:00:00Z",
+            "changes": [
+              {
+                "title": "Fix the menu",
+                "url": "https://github.test/acme/web/pull/4",
+                "number": 4
+              }
+            ]
+          }
+        }
+      ],
+      "githubRequests": [
+        {
+          "method": "GET",
+          "path": "/repos/acme/web/deployments?environment=Production%20%E2%80%93%20web&per_page=30",
+          "headers": {
+            "authorization": "Bearer <github-token>",
+            "accept": "application/vnd.github+json",
+            "x-github-api-version": "2022-11-28"
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/repos/acme/web/deployments/41/statuses?per_page=1",
+          "headers": {
+            "authorization": "Bearer <github-token>",
+            "accept": "application/vnd.github+json",
+            "x-github-api-version": "2022-11-28"
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/repos/acme/web/compare/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb...aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "headers": {
+            "authorization": "Bearer <github-token>",
+            "accept": "application/vnd.github+json",
+            "x-github-api-version": "2022-11-28"
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/repos/acme/web/commits/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/pulls",
+          "headers": {
+            "authorization": "Bearer <github-token>",
+            "accept": "application/vnd.github+json",
+            "x-github-api-version": "2022-11-28"
+          }
+        }
+      ],
+      "tokenPrinted": false
+    },
+    {
+      "name": "gh-commit-read-404",
+      "args": [
+        "--version",
+        "v1.3.0",
+        "--commit-sha",
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "--environment",
+        "production",
+        "--released-at",
+        "2026-11-07T10:00:00Z",
+        "--github-changes"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>",
+        "GITHUB_TOKEN": "<github-token>",
+        "GITHUB_REPOSITORY": "acme/web",
+        "GITHUB_API_URL": "<github>",
+        "GITHUB_EVENT_PATH": "<event-file>"
+      },
+      "github": {
+        "event": {
+          "before": "0000000000000000000000000000000000000000"
+        },
+        "routes": {}
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "Recorded release v1.3.0 (no findings named)\n",
+      "stderr": "GitHub: could not read commit aaaaaaa (HTTP 404); the release is recorded without changes or finding ids from GitHub.\n",
+      "exitCode": 0,
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/api/releases",
+          "headers": {
+            "authorization": "Bearer <token>",
+            "content-type": "application/json",
+            "accept": "*/*",
+            "user-agent": "node"
+          },
+          "body": {
+            "version": "v1.3.0",
+            "environment": "production",
+            "commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "released_at": "2026-11-07T10:00:00Z"
+          }
+        }
+      ],
+      "githubRequests": [
+        {
+          "method": "GET",
+          "path": "/repos/acme/web/commits/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "headers": {
+            "authorization": "Bearer <github-token>",
+            "accept": "application/vnd.github+json",
+            "x-github-api-version": "2022-11-28"
+          }
+        }
+      ],
+      "tokenPrinted": false
+    },
+    {
+      "name": "gh-deployments-403",
+      "args": [
+        "--version",
+        "v1.3.0",
+        "--commit-sha",
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "--environment",
+        "production",
+        "--released-at",
+        "2026-11-07T10:00:00Z",
+        "--github-changes"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>",
+        "GITHUB_TOKEN": "<github-token>",
+        "GITHUB_REPOSITORY": "acme/web",
+        "GITHUB_API_URL": "<github>",
+        "GITHUB_EVENT_PATH": "<event-file>"
+      },
+      "github": {
+        "event": {
+          "deployment": {
+            "id": 42,
+            "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "environment": "Production – web"
+          }
+        },
+        "routes": {
+          "/repos/acme/web/deployments": {
+            "status": 403,
+            "body": {
+              "message": "Resource not accessible by integration"
+            }
+          }
+        }
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "Recorded release v1.3.0 (no findings named)\n",
+      "stderr": "GitHub: could not list deployments (HTTP 403); the release is recorded without changes or finding ids from GitHub.\n",
+      "exitCode": 0,
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/api/releases",
+          "headers": {
+            "authorization": "Bearer <token>",
+            "content-type": "application/json",
+            "accept": "*/*",
+            "user-agent": "node"
+          },
+          "body": {
+            "version": "v1.3.0",
+            "environment": "production",
+            "commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "released_at": "2026-11-07T10:00:00Z"
+          }
+        }
+      ],
+      "githubRequests": [
+        {
+          "method": "GET",
+          "path": "/repos/acme/web/deployments?environment=Production%20%E2%80%93%20web&per_page=30",
+          "headers": {
+            "authorization": "Bearer <github-token>",
+            "accept": "application/vnd.github+json",
+            "x-github-api-version": "2022-11-28"
+          }
+        }
+      ],
+      "tokenPrinted": false
+    },
+    {
+      "name": "gh-pulls-500",
+      "args": [
+        "--version",
+        "v1.3.0",
+        "--commit-sha",
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "--environment",
+        "production",
+        "--released-at",
+        "2026-11-07T10:00:00Z",
+        "--github-changes"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>",
+        "GITHUB_TOKEN": "<github-token>",
+        "GITHUB_REPOSITORY": "acme/web",
+        "GITHUB_API_URL": "<github>",
+        "GITHUB_EVENT_PATH": "<event-file>"
+      },
+      "github": {
+        "event": {
+          "deployment": {
+            "id": 42,
+            "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "environment": "Production – web"
+          }
+        },
+        "routes": {
+          "/repos/acme/web/deployments": {
+            "body": [
+              {
+                "id": 42,
+                "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              },
+              {
+                "id": 41,
+                "sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+              }
+            ]
+          },
+          "/repos/acme/web/deployments/41/statuses": {
+            "body": [
+              {
+                "state": "success"
+              }
+            ]
+          },
+          "/repos/acme/web/compare/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb...aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa": {
+            "body": {
+              "commits": [
+                {
+                  "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "commit": {
+                    "message": "m"
+                  }
+                }
+              ]
+            }
+          },
+          "/repos/acme/web/commits/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/pulls": {
+            "status": 500,
+            "body": {
+              "message": "boom"
+            }
+          }
+        }
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "Recorded release v1.3.0 (no findings named)\n",
+      "stderr": "GitHub: could not list pull requests of aaaaaaa (HTTP 500); the release is recorded without changes or finding ids from GitHub.\n",
+      "exitCode": 0,
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/api/releases",
+          "headers": {
+            "authorization": "Bearer <token>",
+            "content-type": "application/json",
+            "accept": "*/*",
+            "user-agent": "node"
+          },
+          "body": {
+            "version": "v1.3.0",
+            "environment": "production",
+            "commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "released_at": "2026-11-07T10:00:00Z"
+          }
+        }
+      ],
+      "githubRequests": [
+        {
+          "method": "GET",
+          "path": "/repos/acme/web/deployments?environment=Production%20%E2%80%93%20web&per_page=30",
+          "headers": {
+            "authorization": "Bearer <github-token>",
+            "accept": "application/vnd.github+json",
+            "x-github-api-version": "2022-11-28"
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/repos/acme/web/deployments/41/statuses?per_page=1",
+          "headers": {
+            "authorization": "Bearer <github-token>",
+            "accept": "application/vnd.github+json",
+            "x-github-api-version": "2022-11-28"
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/repos/acme/web/compare/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb...aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "headers": {
+            "authorization": "Bearer <github-token>",
+            "accept": "application/vnd.github+json",
+            "x-github-api-version": "2022-11-28"
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/repos/acme/web/commits/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/pulls",
+          "headers": {
+            "authorization": "Bearer <github-token>",
+            "accept": "application/vnd.github+json",
+            "x-github-api-version": "2022-11-28"
+          }
+        }
+      ],
+      "tokenPrinted": false
+    },
+    {
+      "name": "gh-redirect-not-followed",
+      "args": [
+        "--version",
+        "v1.3.0",
+        "--commit-sha",
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "--environment",
+        "production",
+        "--released-at",
+        "2026-11-07T10:00:00Z",
+        "--github-changes"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>",
+        "GITHUB_TOKEN": "<github-token>",
+        "GITHUB_REPOSITORY": "acme/web",
+        "GITHUB_API_URL": "<github>",
+        "GITHUB_EVENT_PATH": "<event-file>"
+      },
+      "github": {
+        "event": {
+          "deployment": {
+            "id": 42,
+            "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "environment": "Production – web"
+          }
+        },
+        "routes": {
+          "/repos/acme/web/deployments": {
+            "body": [
+              {
+                "id": 42,
+                "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              },
+              {
+                "id": 41,
+                "sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+              }
+            ]
+          },
+          "/repos/acme/web/deployments/41/statuses": {
+            "body": [
+              {
+                "state": "success"
+              }
+            ]
+          },
+          "/repos/acme/web/compare/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb...aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa": {
+            "redirect": 302
+          },
+          "/repos/acme/web/commits/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/pulls": {
+            "body": [
+              {
+                "number": 4,
+                "title": "Fix the menu",
+                "body": "Fixes F-12",
+                "html_url": "https://github.test/acme/web/pull/4",
+                "merged_at": "2026-11-06T09:00:00Z"
+              }
+            ]
+          }
+        }
+      },
+      "serverResponses": {
+        "release": {
+          "status": 201,
+          "body": "<echo of the sent body plus id: rel_golden>"
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "Recorded release v1.3.0 (no findings named)\n",
+      "stderr": "GitHub: could not request failed; the release is recorded without changes or finding ids from GitHub.\n",
+      "exitCode": 0,
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/api/releases",
+          "headers": {
+            "authorization": "Bearer <token>",
+            "content-type": "application/json",
+            "accept": "*/*",
+            "user-agent": "node"
+          },
+          "body": {
+            "version": "v1.3.0",
+            "environment": "production",
+            "commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "released_at": "2026-11-07T10:00:00Z"
+          }
+        }
+      ],
+      "githubRequests": [
+        {
+          "method": "GET",
+          "path": "/repos/acme/web/deployments?environment=Production%20%E2%80%93%20web&per_page=30",
+          "headers": {
+            "authorization": "Bearer <github-token>",
+            "accept": "application/vnd.github+json",
+            "x-github-api-version": "2022-11-28"
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/repos/acme/web/deployments/41/statuses?per_page=1",
+          "headers": {
+            "authorization": "Bearer <github-token>",
+            "accept": "application/vnd.github+json",
+            "x-github-api-version": "2022-11-28"
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/repos/acme/web/compare/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb...aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "headers": {
+            "authorization": "Bearer <github-token>",
+            "accept": "application/vnd.github+json",
+            "x-github-api-version": "2022-11-28"
+          }
+        }
+      ],
+      "tokenPrinted": false
+    },
+    {
+      "name": "gh-ok-but-release-refused",
+      "args": [
+        "--version",
+        "v1.3.0",
+        "--commit-sha",
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "--environment",
+        "production",
+        "--released-at",
+        "2026-11-07T10:00:00Z",
+        "--github-changes"
+      ],
+      "env": {
+        "SEQUENTIAL_RELEASES_TOKEN": "<token>",
+        "SEQUENTIAL_API_URL": "<sequential>",
+        "GITHUB_TOKEN": "<github-token>",
+        "GITHUB_REPOSITORY": "acme/web",
+        "GITHUB_API_URL": "<github>",
+        "GITHUB_EVENT_PATH": "<event-file>"
+      },
+      "github": {
+        "event": {
+          "deployment": {
+            "id": 42,
+            "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "environment": "Production – web"
+          }
+        },
+        "routes": {
+          "/repos/acme/web/deployments": {
+            "body": [
+              {
+                "id": 42,
+                "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              },
+              {
+                "id": 41,
+                "sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+              }
+            ]
+          },
+          "/repos/acme/web/deployments/41/statuses": {
+            "body": [
+              {
+                "state": "success"
+              }
+            ]
+          },
+          "/repos/acme/web/compare/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb...aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa": {
+            "body": {
+              "commits": [
+                {
+                  "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "commit": {
+                    "message": "m"
+                  }
+                }
+              ]
+            }
+          },
+          "/repos/acme/web/commits/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/pulls": {
+            "body": [
+              {
+                "number": 4,
+                "title": "Fix the menu",
+                "body": "Fixes F-12",
+                "html_url": "https://github.test/acme/web/pull/4",
+                "merged_at": "2026-11-06T09:00:00Z"
+              }
+            ]
+          }
+        }
+      },
+      "serverResponses": {
+        "release": {
+          "status": 400,
+          "body": {
+            "error": "bad_request",
+            "message": "finding_ids: F-12 is not a finding of this project"
+          }
+        },
+        "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
+      },
+      "stdout": "",
+      "stderr": "finding_ids: F-12 is not a finding of this project\n",
+      "exitCode": 1,
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/api/releases",
+          "headers": {
+            "authorization": "Bearer <token>",
+            "content-type": "application/json",
+            "accept": "*/*",
+            "user-agent": "node"
+          },
+          "body": {
+            "version": "v1.3.0",
+            "environment": "production",
+            "commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "finding_ids": [
+              "F-12"
+            ],
+            "released_at": "2026-11-07T10:00:00Z",
+            "changes": [
+              {
+                "title": "Fix the menu",
+                "url": "https://github.test/acme/web/pull/4",
+                "number": 4
+              }
+            ]
+          }
+        }
+      ],
+      "githubRequests": [
+        {
+          "method": "GET",
+          "path": "/repos/acme/web/deployments?environment=Production%20%E2%80%93%20web&per_page=30",
+          "headers": {
+            "authorization": "Bearer <github-token>",
+            "accept": "application/vnd.github+json",
+            "x-github-api-version": "2022-11-28"
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/repos/acme/web/deployments/41/statuses?per_page=1",
+          "headers": {
+            "authorization": "Bearer <github-token>",
+            "accept": "application/vnd.github+json",
+            "x-github-api-version": "2022-11-28"
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/repos/acme/web/compare/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb...aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "headers": {
+            "authorization": "Bearer <github-token>",
+            "accept": "application/vnd.github+json",
+            "x-github-api-version": "2022-11-28"
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/repos/acme/web/commits/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/pulls",
+          "headers": {
+            "authorization": "Bearer <github-token>",
+            "accept": "application/vnd.github+json",
+            "x-github-api-version": "2022-11-28"
+          }
+        }
+      ],
+      "tokenPrinted": false
+    }
+  ]
+}

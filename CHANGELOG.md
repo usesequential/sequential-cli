@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.1.2
+
+- `sequential-release` (`dist/release-bin.js`, which `@usesequential/release-cli` runs) behaves exactly like
+  release-cli 0.2.1 again: `POST /api/releases` (not the record_release tool over MCP), with 0.2.1's flags, checks,
+  lines and exit codes (0 or 1). As in 0.2.1: the token from `SEQUENTIAL_RELEASES_TOKEN` only, checked for presence only;
+  the API from `--host`, else `SEQUENTIAL_API_URL`, else `https://api.usesequential.com`, `http://` only for `localhost`
+  and `127.0.0.1`, and a path in it is kept; `--help`, `--json`, `--dry-run`, `--finding`, `--project`, `--timeout` and
+  every `--flag=value` are unknown options; no line about the host. The one difference: the user-agent header is
+  `sequential-cli/0.1.2`. Neither token is ever printed: a server or network message that quoted one would show
+  `[token]` there (no recorded case prints one). The 95 cases recorded from 0.2.1 are this package's test
+  (test/release-golden.test.ts). This undoes the differences from 0.2.x that 0.1.0 listed.
+- When Sequential refuses because the person who made the token has not accepted the trial's terms yet (HTTP 403
+  `terms_pending`), the CLI prints one line saying so: that person signs in to Sequential and accepts the terms, then the
+  same command works. Exit code 4, as before. With `--json`, the error object carries that line as `message`.
+- `src/contract.json`: `cli_version` 0.1.2, and two new facts for the server to pin: `terms_pending_error` and
+  `release_alias_path` (`/api/releases`). The server does not check them yet.
+
 ## 0.1.1
 
 - The npm page links to the repository: package.json names `repository`, `bugs` and `homepage`. No change to the CLI.
