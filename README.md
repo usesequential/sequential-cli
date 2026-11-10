@@ -42,25 +42,26 @@ sequential whoami
 - Leave `--environment` out of `releases record`: the release then takes your project's environment, the one where fixes
   are measured. Name the version exactly as your app's events carry it.
 - A title that reads like an instruction is kept as a proposal. The CLI prints the link where a person confirms it.
-- To name the merged pull requests and the findings a release fixes, from GitHub or git, see
+- To name the merged pull requests and the cases a release fixes, from GitHub or git, see
   [Record a release from GitHub Actions or Vercel](#record-a-release-from-github-actions-or-vercel).
 - `sequential help <command>` lists every option. Sequential checks the values: `sequential tools describe record_change`
   shows the kinds and limits.
 
 ## Record a release from GitHub Actions or Vercel
 
-`sequential releases record` can also name what a release changed and the findings it fixes, from git or from GitHub:
+`sequential releases record` can also name what a release changed and the cases it fixes, from git or from GitHub:
 
 - `--github-changes` reads the GitHub API with the workflow's token. It does not need a checkout.
 - `--range <prev..HEAD>` reads `Sequential-Finding: F-12` commit trailers with `git log` in a checkout (use
   `actions/checkout` with `fetch-depth: 0`).
 
-Use one of them, not both. Sequential then compares the sessions before and after the release for each finding that the
+Use one of them, not both. Sequential then compares the sessions before and after the release for each case that the
 release names. The release only records what changed. It does not say what caused a result.
+The API and the agent tools call a case a finding.
 
 ### The release version must match your SDK's release
 
-Sequential compares a finding before and after a release. To count a session as "after", Sequential reads the release
+Sequential compares a case before and after a release. To count a session as "after", Sequential reads the release
 that the session's events carry (the browser SDK's `release` option, `data-release` on the script tag, or `$release` that
 the page registers; a mobile app's version). The backend SDK's release is not used. Each such session must carry **the
 same string** as the `--version` that you record:
@@ -134,12 +135,12 @@ The workflow gives `GITHUB_TOKEN`. GitHub Actions sets `GITHUB_REPOSITORY`, `GIT
 2. **The commits** from the previous release to this one (GitHub lists at most 250).
 3. **The merged pull requests** of these commits, newest first: each one once, at most 50. They go to the release as
    its changes (title, link and number).
-4. **The findings:** `Sequential-Finding: F-12` trailers in the commit messages, and "Fixes F-12" in pull request titles
+4. **The cases:** `Sequential-Finding: F-12` trailers in the commit messages, and "Fixes F-12" in pull request titles
    and bodies (also fix, fixed, close, closes, closed, resolve, resolves, resolved; lists such as "Fixes F-3, F-4 and
    F-5"). They are sent after any `--finding` ids, each once, at most 50.
 
 The job needs the three read permissions above. Without them, GitHub refuses the calls, and the release is recorded
-without changes and without finding ids from GitHub.
+without changes and without case ids from GitHub.
 
 **When a GitHub read fails** (for example, the previous release is not an ancestor of this commit after a rollback, so
 GitHub cannot compare them), the command prints one line and still records the release:
@@ -157,9 +158,9 @@ Recorded release 3f2a… (1 finding: F-12; 1 change from 3f2a9c1 alone (no earli
 
 `--dry-run` reads git and GitHub too, and prints what would be sent. It sends nothing to Sequential.
 
-### Monorepos: which findings belong to which project
+### Monorepos: which cases belong to which project
 
-A finding number belongs to one Sequential project: `F-12` can exist in each of your projects. When one pull request
+A case number belongs to one Sequential project: `F-12` can exist in each of your projects. When one pull request
 changes several apps, write the project key before the number:
 
 ```
@@ -167,7 +168,7 @@ Fixes web#F-12, app#F-3
 ```
 
 - With `--project-key web`, only `web#…` ids count for this release. An unqualified `F-12` does not count, because it
-  could be another project's finding. To count unqualified ids too, add `--findings all`.
+  could be another project's case. To count unqualified ids too, add `--findings all`.
 - Without `--project-key` (one repository, one Sequential project), unqualified ids count, and qualified ids do not.
 - The same rule applies to trailers: `Sequential-Finding: web#F-12`.
 
