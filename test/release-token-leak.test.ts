@@ -61,7 +61,7 @@ for (const mode of MODES) {
     });
 }
 
-// `sequential-release` is release-cli 0.2.1 (POST /api/releases): no --timeout and no size cap there, so no hang or huge
+// `sequential-release` is release-cli 0.2.2 (POST /api/releases): no --timeout and no size cap there, so no hang or huge
 // mode; it prints a refusal's message and fetch's error message as 0.2.1 did, so a quoted "Authorization" word may show,
 // but never either token (each is shown as [token]).
 type AliasMode = 'gh-throws' | 'gh-401-echo' | 'seq-throws' | 'seq-500-echo' | 'seq-refusal-echo' | 'seq-error-echo';

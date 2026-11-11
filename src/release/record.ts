@@ -71,7 +71,7 @@ export interface Gathered {
     note: string;
 }
 
-const FALLBACK = 'the release is recorded without changes or finding ids from GitHub.';
+const FALLBACK = 'the release is recorded without changes or case ids from GitHub.';
 
 /** Runs git (--range) or reads GitHub (--github-changes). A git failure is a UsageError; a GitHub failure one stderr line. */
 export async function gatherRelease(plan: ReleasePlan, io: ReleaseIo, env: Record<string, string | undefined>, opts: GetOptions = {}): Promise<Gathered> {
@@ -108,8 +108,8 @@ export async function gatherRelease(plan: ReleasePlan, io: ReleaseIo, env: Recor
     }
 }
 
-/** The old CLI's success line: `Recorded release <v> (<n findings: …|no findings named><note>)`. */
+/** The old CLI's success line: `Recorded release <v> (<n cases: …|no cases named><note>)`. */
 export function successLine(version: string, ids: readonly string[], note: string): string {
-    const summary = ids.length === 0 ? 'no findings named' : `${ids.length} ${ids.length === 1 ? 'finding' : 'findings'}: ${ids.join(', ')}`;
+    const summary = ids.length === 0 ? 'no cases named' : `${ids.length} ${ids.length === 1 ? 'case' : 'cases'}: ${ids.join(', ')}`;
     return oneLine(`Recorded release ${version} (${summary}${note})`);
 }

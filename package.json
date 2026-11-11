@@ -1,6 +1,6 @@
 {
     "name": "@usesequential/cli",
-    "version": "0.1.2",
+    "version": "0.1.3",
     "description": "The Sequential command line: record changes and releases from any CI or shell, and call every Sequential agent tool from scripts.",
     "keywords": [
         "sequential",

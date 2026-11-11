@@ -8,13 +8,15 @@ import * as path from 'node:path';
 import { after, before, describe, test } from 'node:test';
 import { VERSION } from '../src/version';
 
-// The contract of `sequential-release`: dist/release-bin.js (npm run build) does what @usesequential/release-cli 0.2.1 did,
-// case for case. test/fixtures/release-cli-0.2.1.golden.json is the record of 0.2.1 (95 cases, made by the server
-// repository's tests/cli/fixtures/record-golden.cjs: each case ran 0.2.1's bin as a process against fakes on 127.0.0.1).
+// The contract of `sequential-release`: dist/release-bin.js (npm run build) does what @usesequential/release-cli 0.2.2 does,
+// case for case. test/fixtures/release-cli-0.2.2.golden.json is the record of 0.2.1 (95 cases, made by the server
+// repository's tests/cli/fixtures/record-golden.cjs: each case ran 0.2.1's bin as a process against fakes on 127.0.0.1)
+// with the words of 0.2.2, which are the only difference between the two versions: "case ids from GitHub", "no cases
+// named" and "<n> case(s):" where 0.2.1 printed "finding". No other field of a case changed.
 // This file is that recorder's runner, zero-dependency: every case runs the built bin as a process with the same
 // environment against the same fakes, and must give the SAME stdout, stderr, exit code, GitHub requests (method, path,
 // headers) and Sequential request (method, path, body, headers). The one allowed difference: the user-agent header,
-// which 0.2.1 left to Node ("node") and 0.1.2 sets to sequential-cli/<version>.
+// which 0.2.x leaves to Node ("node") and this package sets to sequential-cli/<version>.
 //
 // The fakes: a Sequential API over plain http (the bin allows http for 127.0.0.1) answering POST /api/releases with the
 // case's answer; a GitHub API over https with a throwaway self-signed certificate (openssl, made per run; the child trusts
@@ -22,7 +24,7 @@ import { VERSION } from '../src/version';
 // leaves 127.0.0.1, and the tokens are fakes.
 const ROOT = path.join(__dirname, '../..');
 const BIN = path.join(ROOT, 'dist/release-bin.js');
-const GOLDEN = JSON.parse(fs.readFileSync(path.join(ROOT, 'test/fixtures/release-cli-0.2.1.golden.json'), 'utf8')) as { cases: GoldenCase[] };
+const GOLDEN = JSON.parse(fs.readFileSync(path.join(ROOT, 'test/fixtures/release-cli-0.2.2.golden.json'), 'utf8')) as { cases: GoldenCase[] };
 
 const TOKEN = `sq_pat_GoldenFake${'0'.repeat(22)}`;
 const GH_TOKEN = 'ghs_golden_fake_workflow_token';
@@ -211,7 +213,7 @@ const withoutUa = (r: Logged): Logged => {
     return { ...r, headers };
 };
 
-describe('sequential-release = release-cli 0.2.1: every golden case against dist/release-bin.js', () => {
+describe('sequential-release = release-cli 0.2.2: every golden case against dist/release-bin.js', () => {
     const ctx = {} as Ctx;
 
     before(async () => {

@@ -36,7 +36,7 @@ test('the server caps the CLI keeps to (it reads ids and changes from git and Gi
 test('the refusal and the path the CLI reads by name are contract.json\'s', () => {
     // A 403 whose error is terms_pending gets the "accept the trial's terms" line (errors.ts).
     assert.equal(facts.terms_pending_error, TERMS_PENDING);
-    // `sequential-release` (release-cli 0.2.1) POSTs here, with SEQUENTIAL_RELEASES_TOKEN (releases:write).
+    // `sequential-release` (release-cli 0.2.2) POSTs here, with SEQUENTIAL_RELEASES_TOKEN (releases:write).
     assert.equal(facts.release_alias_path, '/api/releases');
     assert.ok(src('release/alias.ts').includes(`const RELEASES_PATH = '${facts.release_alias_path as string}';`));
 });

@@ -146,14 +146,14 @@ without changes and without case ids from GitHub.
 GitHub cannot compare them), the command prints one line and still records the release:
 
 ```
-GitHub: could not compare bbbbbbb...aaaaaaa (HTTP 404); the release is recorded without changes or finding ids from GitHub.
+GitHub: could not compare bbbbbbb...aaaaaaa (HTTP 404); the release is recorded without changes or case ids from GitHub.
 ```
 
 On success, the last line says what was recorded, for example:
 
 ```
-Recorded release 3f2a… (2 findings: F-1, F-12; 1 change since bbbbbbb)
-Recorded release 3f2a… (1 finding: F-12; 1 change from 3f2a9c1 alone (no earlier release found))
+Recorded release 3f2a… (2 cases: F-1, F-12; 1 change since bbbbbbb)
+Recorded release 3f2a… (1 case: F-12; 1 change from 3f2a9c1 alone (no earlier release found))
 ```
 
 `--dry-run` reads git and GitHub too, and prints what would be sent. It sends nothing to Sequential.
@@ -202,7 +202,7 @@ head commit.
 ### `sequential-release` (the old `@usesequential/release-cli`)
 
 The old command keeps working through `@usesequential/release-cli`, whose next version runs this package's
-`dist/release-bin.js` (not published yet). It works exactly as release-cli 0.2.1: `POST /api/releases` with the token
+`dist/release-bin.js` (not published yet). It works exactly as release-cli 0.2.2: `POST /api/releases` with the token
 from `SEQUENTIAL_RELEASES_TOKEN` only (never `SEQUENTIAL_TOKEN`); the API from `--host`, else `SEQUENTIAL_API_URL`, else
 `https://api.usesequential.com` (`https://`, or `http://` for `localhost` and `127.0.0.1` only); the same flags (`--sha`
 is `--commit-sha`; a value may start with `--`; a repeated flag keeps its last value; `--flag=value` and any other option

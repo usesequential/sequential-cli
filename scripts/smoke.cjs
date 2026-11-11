@@ -1,7 +1,7 @@
 // The built package as npm would ship it. ONE bin, `sequential`: with two, `npx @usesequential/cli …` cannot tell which to
 // run (npm picks the bin named after the package, else the only one; "cli" is neither), so every documented command
 // would fail. `sequential` prints its version and refuses without a token (exit 2). The alias entry dist/release-bin.js
-// (run by @usesequential/release-cli's bin) works as release-cli 0.2.1: --help is an unknown option with the usage, and
+// (run by @usesequential/release-cli's bin) works as release-cli 0.2.2: --help is an unknown option with the usage, and
 // no SEQUENTIAL_RELEASES_TOKEN is refused (exit 1 both). The tarball holds only
 // dist, README, LICENSE and CHANGELOG (no tests, no sources, no fixtures).
 const { execFileSync, spawnSync } = require('node:child_process');

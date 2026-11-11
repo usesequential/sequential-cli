@@ -10,7 +10,7 @@ import type { FetchLike } from '../src/transport';
 // `sequential releases record` with the options of @usesequential/release-cli (--title, --range, --github-changes, --base,
 // --project-key, --findings), ported from that package's tests/cli/cli.test.ts and release.test.ts: the record_release
 // tool over MCP, so these pins read the tools/call body. Then `sequential-release`, the old command itself, which works
-// exactly as release-cli 0.2.1 (POST /api/releases).
+// exactly as release-cli 0.2.2 (POST /api/releases).
 const TOKEN = 'sq_pat_' + 'A1b2C3d4'.repeat(4);
 const OTHER = 'sq_pat_' + 'Z9y8X7w6'.repeat(4);
 const GH_TOKEN = 'ghs_fake_workflow_token';
@@ -92,7 +92,7 @@ describe('releases record: --title and the success line', () => {
         assert.equal(h.seen[0].headers.authorization, `Bearer ${TOKEN}`);
         assert.equal(h.seen[0].redirect, 'error');
         assert.deepEqual(h.calls()[0].body!.params, { name: 'record_release', arguments: { version: 'fe@2', commit_sha: 'abc1234', title: 'Clearer checkout errors' } });
-        assert.deepEqual(h.out, ['recorded release v', 'environment production, released at 2026-11-02T10:00:00.000Z', 'Recorded release fe@2 (no findings named)']);
+        assert.deepEqual(h.out, ['recorded release v', 'environment production, released at 2026-11-02T10:00:00.000Z', 'Recorded release fe@2 (no cases named)']);
     });
 
     test('empty optional fields are left out rather than sent blank: no title, no finding_ids, no changes', async () => {
@@ -114,7 +114,7 @@ describe('releases record: --title and the success line', () => {
     test('the success line is one line, stripped of controls (the version is the caller\'s text)', async () => {
         const h = harness();
         assert.equal(await main(rel('--version', 'v1\u001b[2J‮'), ENV, h.io), 0);
-        assert.equal(h.out.at(-1), 'Recorded release v1 (no findings named)');
+        assert.equal(h.out.at(-1), 'Recorded release v1 (no cases named)');
     });
 });
 
@@ -124,7 +124,7 @@ describe('releases record --range', () => {
         assert.equal(await main(rel('--version', 'fe@2', '--range', 'v1.0.0..v1.1.0'), ENV, h.io), 0);
         assert.deepEqual(h.gitCalls, [['log', '--format=%B', 'v1.0.0..v1.1.0']]);
         assert.deepEqual(h.sent().finding_ids, ['F-1', 'F-4']);
-        assert.equal(h.out.at(-1), 'Recorded release fe@2 (2 findings: F-1, F-4)');
+        assert.equal(h.out.at(-1), 'Recorded release fe@2 (2 cases: F-1, F-4)');
     });
 
     test('trailer ids are sent after the --finding flags, each once, at most 50 (the flags first)', async () => {
@@ -135,7 +135,7 @@ describe('releases record --range', () => {
         assert.equal(ids.length, 50);
         assert.deepEqual(ids.slice(0, 4), ['F-77', 'F-3', 'F-1', 'F-2']);
         assert.equal(new Set(ids).size, 50);
-        assert.match(h.out.at(-1)!, /^Recorded release fe@2 \(50 findings: F-77, F-3, F-1, /);
+        assert.match(h.out.at(-1)!, /^Recorded release fe@2 \(50 cases: F-77, F-3, F-1, /);
     });
 
     test('the --finding flags alone are sent as given (Sequential checks them, the CLI copies no rule)', async () => {
@@ -157,7 +157,7 @@ describe('releases record --range', () => {
             const h = harness({ git: () => 'fix: x\n\nSequential-Finding: F-3\n' });
             assert.equal(await main(rel('--version', 'fe@2', '--range', range), ENV, h.io), 0, range);
             assert.deepEqual(h.gitCalls, [args], range);
-            assert.equal(h.out.at(-1), 'Recorded release fe@2 (1 finding: F-3)');
+            assert.equal(h.out.at(-1), 'Recorded release fe@2 (1 case: F-3)');
         }
     });
 
@@ -207,7 +207,7 @@ describe('releases record --github-changes', () => {
             finding_ids: ['F-1', 'F-12'],
             changes: [{ title: 'Fix the menu', url: 'https://github.test/acme/mono/pull/4', number: 4 }],
         });
-        assert.equal(h.out.at(-1), `Recorded release ${HEAD} (2 findings: F-1, F-12; 1 change since bbbbbbb)`);
+        assert.equal(h.out.at(-1), `Recorded release ${HEAD} (2 cases: F-1, F-12; 1 change since bbbbbbb)`);
         assert.deepEqual(h.err, ["sequential: releases record on the token's project"]);
         assert.ok(!h.printed().includes(GH_TOKEN) && !h.printed().includes(TOKEN.slice(7)));
         // GitHub gets the workflow token, never Sequential's; Sequential never gets GitHub's.
@@ -226,28 +226,28 @@ describe('releases record --github-changes', () => {
         assert.deepEqual(h.sent().finding_ids, ['F-12', 'F-40', 'F-1']);
     });
 
-    test('a failed compare: one line on stderr, and the release is recorded without changes or finding ids from GitHub', async () => {
+    test('a failed compare: one line on stderr, and the release is recorded without changes or case ids from GitHub', async () => {
         const h = harness({ github: (p) => (p.includes('/compare/') ? { status: 404, body: { message: 'No common ancestor' } } : github(p)), event: EVENT });
         assert.equal(await main(rel(...GH_ARGS, '--finding', 'F-9'), GH_ENV, h.io), 0);
-        assert.equal(h.err.at(-1), 'GitHub: could not compare bbbbbbb...aaaaaaa (HTTP 404); the release is recorded without changes or finding ids from GitHub.');
+        assert.equal(h.err.at(-1), 'GitHub: could not compare bbbbbbb...aaaaaaa (HTTP 404); the release is recorded without changes or case ids from GitHub.');
         const sent = h.sent();
         assert.equal('changes' in sent, false);
         assert.deepEqual(sent.finding_ids, ['F-9']); // the caller's own flags still go
-        assert.equal(h.out.at(-1), `Recorded release ${HEAD} (1 finding: F-9)`);
+        assert.equal(h.out.at(-1), `Recorded release ${HEAD} (1 case: F-9)`);
     });
 
     test('GitHub not reached (or a redirect): "could not request failed", the old wording; the release is recorded', async () => {
         const h = harness({ github: () => 'throw', event: EVENT });
         assert.equal(await main(rel(...GH_ARGS), GH_ENV, h.io), 0);
-        assert.equal(h.err.at(-1), 'GitHub: could not request failed; the release is recorded without changes or finding ids from GitHub.');
+        assert.equal(h.err.at(-1), 'GitHub: could not request failed; the release is recorded without changes or case ids from GitHub.');
         assert.equal(h.calls().length, 1);
-        assert.equal(h.out.at(-1), `Recorded release ${HEAD} (no findings named)`);
+        assert.equal(h.out.at(-1), `Recorded release ${HEAD} (no cases named)`);
     });
 
     test('no GITHUB_TOKEN: says so, and records the release (one request: Sequential)', async () => {
         const h = harness({ github, event: EVENT });
         assert.equal(await main(rel(...GH_ARGS), { ...GH_ENV, GITHUB_TOKEN: '' }, h.io), 0);
-        assert.match(h.err.at(-1)!, /^GitHub: GITHUB_TOKEN is not set: pass it to the step .*; the release is recorded without changes or finding ids from GitHub\.$/);
+        assert.match(h.err.at(-1)!, /^GitHub: GITHUB_TOKEN is not set: pass it to the step .*; the release is recorded without changes or case ids from GitHub\.$/);
         assert.equal(h.seen.length, 1);
     });
 
@@ -262,14 +262,14 @@ describe('releases record --github-changes', () => {
             event: EVENT,
         });
         assert.equal(await main(rel(...GH_ARGS), GH_ENV, h.io), 0);
-        assert.equal(h.out.at(-1), `Recorded release ${HEAD} (no findings named; 0 changes from aaaaaaa alone (no earlier release found))`);
+        assert.equal(h.out.at(-1), `Recorded release ${HEAD} (no cases named; 0 changes from aaaaaaa alone (no earlier release found))`);
     });
 
     test('--base <sha> compares with it, without reading deployments', async () => {
         const h = harness({ github, event: EVENT });
         assert.equal(await main(rel(...GH_ARGS, '--base', PREV), GH_ENV, h.io), 0);
         assert.ok(!h.gets().some((g) => g.url.includes('/deployments')));
-        assert.equal(h.out.at(-1), `Recorded release ${HEAD} (2 findings: F-1, F-12; 1 change since bbbbbbb)`);
+        assert.equal(h.out.at(-1), `Recorded release ${HEAD} (2 cases: F-1, F-12; 1 change since bbbbbbb)`);
     });
 
     test("--project-key reads only that project's qualified ids", async () => {
@@ -337,8 +337,8 @@ describe('releases record --github-changes', () => {
     });
 });
 
-// `sequential-release`: release-cli 0.2.1, ported (src/release/alias.ts). test/release-golden.test.ts runs the built bin
-// against every recorded 0.2.1 case; these pin the same rules in-process, on a fake fetch (POST /api/releases).
+// `sequential-release`: release-cli 0.2.2 (0.2.1 ported, with the words of 0.2.2; src/release/alias.ts).
+// test/release-golden.test.ts runs the built bin against every case of the 0.2.2 record; these pin the same rules in-process, on a fake fetch (POST /api/releases).
 interface AliasSeen { url: string; method: string; headers: Record<string, string>; redirect: string; body: Record<string, unknown> | null }
 
 /** A fake Sequential (POST /api/releases) and GitHub (GETs), a fake git, the raw stdout and stderr text. */
@@ -379,7 +379,7 @@ function alias(o: { status?: number; answer?: unknown; throws?: string; github?:
     };
 }
 
-describe('sequential-release (release-cli 0.2.1, ported)', () => {
+describe('sequential-release (release-cli 0.2.2, ported)', () => {
     const RENV = { SEQUENTIAL_RELEASES_TOKEN: TOKEN };
     const UNKNOWN = (flag: string) => `Unknown option: ${flag}\n${ALIAS_USAGE}\n`;
 
@@ -387,7 +387,7 @@ describe('sequential-release (release-cli 0.2.1, ported)', () => {
         for (const env of [RENV, { ...RENV, SEQUENTIAL_API_URL: '' }]) {
             const h = alias();
             assert.equal(await runReleaseAlias(['--version', 'fe@2'], env, h.deps), 0);
-            assert.deepEqual([h.out(), h.err()], ['Recorded release fe@2 (no findings named)\n', '']);
+            assert.deepEqual([h.out(), h.err()], ['Recorded release fe@2 (no cases named)\n', '']);
             assert.equal(h.seen.length, 1);
             const s = h.seen[0];
             assert.deepEqual([s.method, s.url, s.redirect], ['POST', 'https://api.usesequential.com/api/releases', 'error']);
@@ -506,7 +506,7 @@ describe('sequential-release (release-cli 0.2.1, ported)', () => {
         assert.equal(await runReleaseAlias(['--version', 'fe@2', '--range', 'v1..v2'], RENV, h.deps), 0);
         assert.deepEqual(h.gitCalls, [['log', '--format=%B', 'v1..v2']]);
         assert.deepEqual(h.sent(), { version: 'fe@2', finding_ids: ['F-1', 'F-4'] });
-        assert.equal(h.out(), 'Recorded release fe@2 (2 findings: F-1, F-4)\n');
+        assert.equal(h.out(), 'Recorded release fe@2 (2 cases: F-1, F-4)\n');
         const z = alias({ git: () => 'Sequential-Finding: F-3' });
         assert.equal(await runReleaseAlias(['--version', 'v', '--range', `${'0'.repeat(40)}..`], RENV, z.deps), 0);
         assert.deepEqual(z.gitCalls, [['log', '-1', '--format=%B', 'HEAD']]);
@@ -522,18 +522,18 @@ describe('sequential-release (release-cli 0.2.1, ported)', () => {
         const h = alias({ github, event: EVENT });
         const argv = ['--version', 'v1', '--sha', HEAD, '--github-changes'];
         assert.equal(await runReleaseAlias(argv, { ...GH_ENV, SEQUENTIAL_RELEASES_TOKEN: TOKEN }, h.deps), 0);
-        assert.equal(h.out(), 'Recorded release v1 (2 findings: F-1, F-12; 1 change since bbbbbbb)\n');
+        assert.equal(h.out(), 'Recorded release v1 (2 cases: F-1, F-12; 1 change since bbbbbbb)\n');
         assert.equal(h.err(), '');
         assert.deepEqual(h.sent(), { version: 'v1', commit_sha: HEAD, finding_ids: ['F-1', 'F-12'], changes: [{ title: 'Fix the menu', url: 'https://github.test/acme/mono/pull/4', number: 4 }] });
         const gets = h.seen.filter((s) => s.method === 'GET');
         assert.ok(gets.every((g) => g.redirect === 'error' && g.headers.Authorization === `Bearer ${GH_TOKEN}` && !('User-Agent' in g.headers)));
         const fail = alias({ github: (p) => (p.includes('/compare/') ? { status: 404, body: {} } : github(p)), event: EVENT });
         assert.equal(await runReleaseAlias(argv, { ...GH_ENV, SEQUENTIAL_RELEASES_TOKEN: TOKEN }, fail.deps), 0);
-        assert.equal(fail.err(), 'GitHub: could not compare bbbbbbb...aaaaaaa (HTTP 404); the release is recorded without changes or finding ids from GitHub.\n');
+        assert.equal(fail.err(), 'GitHub: could not compare bbbbbbb...aaaaaaa (HTTP 404); the release is recorded without changes or case ids from GitHub.\n');
         assert.deepEqual(fail.sent(), { version: 'v1', commit_sha: HEAD });
         const off = alias({ event: EVENT });
         assert.equal(await runReleaseAlias(argv, { ...GH_ENV, SEQUENTIAL_RELEASES_TOKEN: TOKEN }, off.deps), 0);
-        assert.equal(off.err(), 'GitHub: could not request failed; the release is recorded without changes or finding ids from GitHub.\n');
+        assert.equal(off.err(), 'GitHub: could not request failed; the release is recorded without changes or case ids from GitHub.\n');
     });
 
     test('neither token is ever printed, even when a server or fetch message quotes it', async () => {

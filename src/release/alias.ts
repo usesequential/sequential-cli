@@ -1,7 +1,8 @@
 // `sequential-release`: the old @usesequential/release-cli command, a line-for-line port of its 0.2.1 (cli/src/cli.cjs
 // and cli/src/release.cjs), so every workflow that ran 0.2.1 runs this the same way. test/release-golden.test.ts runs
-// dist/release-bin.js against the 95 cases recorded from 0.2.1 and requires the same stdout, stderr, exit code, GitHub
-// requests and Sequential request (POST <host>/api/releases). It does NOT share `sequential releases record`'s path:
+// dist/release-bin.js against the 95 cases recorded from 0.2.1 (with the words of 0.2.2) and requires the same stdout,
+// stderr, exit code, GitHub requests and Sequential request (POST <host>/api/releases). It does NOT share
+// `sequential releases record`'s path:
 // - the token from SEQUENTIAL_RELEASES_TOKEN only (never SEQUENTIAL_TOKEN), checked for presence only;
 // - the API from --host, else SEQUENTIAL_API_URL, else https://api.usesequential.com; https, http only for localhost and
 //   127.0.0.1; a trailing slash is dropped and a path is kept;
@@ -9,9 +10,11 @@
 //   option are "Unknown option" with the usage;
 // - POST /api/releases with a JSON body that leaves out empty values; a redirect is never followed;
 // - exit 0 or 1.
+// The printed words are those of release-cli 0.2.2, which differs from 0.2.1 only in them: "case" where 0.2.1 printed
+// "finding" (the GitHub fallback line and the summary of the success line). Flags, JSON keys and trailers are the same.
 // The one request difference from 0.2.1: the user-agent header is sequential-cli/<version> (0.2.1 sent Node's default).
 // What it prints never holds SEQUENTIAL_RELEASES_TOKEN or GITHUB_TOKEN (a server or fetch message that quoted one would
-// show [token] there); no recorded case prints either, so no line differs from 0.2.1.
+// show [token] there); no recorded case prints either, so no line differs from 0.2.x.
 import { findingScope } from './findings';
 import { findingIdsFromLog } from './trailers';
 import { githubContext, releaseChanges, type LegacyChange, type LegacyFetch } from './legacy-github';
@@ -221,7 +224,7 @@ export async function runRelease(argv: readonly string[], env: Record<string, st
     if (args.githubChanges) {
         const ctx = githubContext(env, readFile);
         if (!ctx.ok) {
-            stderr.write(`GitHub: ${ctx.message}; the release is recorded without changes or finding ids from GitHub.\n`);
+            stderr.write(`GitHub: ${ctx.message}; the release is recorded without changes or case ids from GitHub.\n`);
         } else {
             try {
                 const read = await releaseChanges(ctx.value, { head: args.sha, base, scope }, fetchImpl);
@@ -232,7 +235,7 @@ export async function runRelease(argv: readonly string[], env: Record<string, st
                     : `; ${changes.length} ${changes.length === 1 ? 'change' : 'changes'} since ${read.base.slice(0, 7)}`;
             } catch (err) {
                 const what = err && (err as { name?: unknown }).name === 'GitHubError' ? errMessage(err) : 'request failed';
-                stderr.write(`GitHub: could not ${what}; the release is recorded without changes or finding ids from GitHub.\n`);
+                stderr.write(`GitHub: could not ${what}; the release is recorded without changes or case ids from GitHub.\n`);
             }
         }
     }
@@ -264,7 +267,7 @@ export async function runRelease(argv: readonly string[], env: Record<string, st
     }
 
     const ids = findingIds || [];
-    const summary = ids.length === 0 ? 'no findings named' : `${ids.length} ${ids.length === 1 ? 'finding' : 'findings'}: ${ids.join(', ')}`;
+    const summary = ids.length === 0 ? 'no cases named' : `${ids.length} ${ids.length === 1 ? 'case' : 'cases'}: ${ids.join(', ')}`;
     stdout.write(`Recorded release ${args.version} (${summary}${changesNote})\n`);
     return 0;
 }

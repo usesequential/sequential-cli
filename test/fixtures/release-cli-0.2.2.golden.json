@@ -1,5 +1,5 @@
 {
-  "about": "Golden record of @usesequential/release-cli 0.2.1 (cli/bin/sequential-release.cjs) before it became a wrapper. Recorded by tests/cli/fixtures/record-golden.cjs: each case ran the bin as a process against fakes on 127.0.0.1.",
+  "about": "Golden record of @usesequential/release-cli 0.2.2. It is the record of 0.2.1 (cli/bin/sequential-release.cjs before it became a wrapper; recorded by tests/cli/fixtures/record-golden.cjs: each case ran the bin as a process against fakes on 127.0.0.1) with only the words of 0.2.2 changed, in stdout and stderr: \"finding ids from GitHub\" is \"case ids from GitHub\", \"no findings named\" is \"no cases named\", \"<n> finding(s):\" is \"<n> case(s):\". No other field differs from the 0.2.1 record.",
   "recordedWith": {
     "node": "v22.23.2",
     "bin": "cli/bin/sequential-release.cjs"
@@ -83,7 +83,7 @@
         },
         "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
       },
-      "stdout": "Recorded release v1.3.0 (no findings named)\n",
+      "stdout": "Recorded release v1.3.0 (no cases named)\n",
       "stderr": "",
       "exitCode": 0,
       "requests": [
@@ -199,7 +199,7 @@
         },
         "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
       },
-      "stdout": "Recorded release v1.3.0 (no findings named)\n",
+      "stdout": "Recorded release v1.3.0 (no cases named)\n",
       "stderr": "",
       "exitCode": 0,
       "requests": [
@@ -237,7 +237,7 @@
         },
         "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
       },
-      "stdout": "Recorded release v1.3.0 (no findings named)\n",
+      "stdout": "Recorded release v1.3.0 (no cases named)\n",
       "stderr": "",
       "exitCode": 0,
       "requests": [
@@ -512,7 +512,7 @@
         },
         "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
       },
-      "stdout": "Recorded release v1.3.0 (no findings named)\n",
+      "stdout": "Recorded release v1.3.0 (no cases named)\n",
       "stderr": "",
       "exitCode": 0,
       "requests": [
@@ -552,7 +552,7 @@
         },
         "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
       },
-      "stdout": "Recorded release v1.3.0 (no findings named)\n",
+      "stdout": "Recorded release v1.3.0 (no cases named)\n",
       "stderr": "",
       "exitCode": 0,
       "requests": [
@@ -1134,7 +1134,7 @@
         },
         "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
       },
-      "stdout": "Recorded release v1.3.0 (no findings named)\n",
+      "stdout": "Recorded release v1.3.0 (no cases named)\n",
       "stderr": "",
       "exitCode": 0,
       "requests": [
@@ -1180,7 +1180,7 @@
         },
         "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
       },
-      "stdout": "Recorded release v1.3.0 (no findings named)\n",
+      "stdout": "Recorded release v1.3.0 (no cases named)\n",
       "stderr": "",
       "exitCode": 0,
       "requests": [
@@ -1224,7 +1224,7 @@
         },
         "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
       },
-      "stdout": "Recorded release v1.3.0 (no findings named)\n",
+      "stdout": "Recorded release v1.3.0 (no cases named)\n",
       "stderr": "",
       "exitCode": 0,
       "requests": [
@@ -1271,7 +1271,7 @@
         },
         "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
       },
-      "stdout": "Recorded release v1.3.0 (no findings named)\n",
+      "stdout": "Recorded release v1.3.0 (no cases named)\n",
       "stderr": "",
       "exitCode": 0,
       "requests": [
@@ -1311,7 +1311,7 @@
         },
         "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
       },
-      "stdout": "Recorded release v1.3.0 (no findings named)\n",
+      "stdout": "Recorded release v1.3.0 (no cases named)\n",
       "stderr": "",
       "exitCode": 0,
       "requests": [
@@ -1350,7 +1350,7 @@
         },
         "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
       },
-      "stdout": "Recorded release v1.3.0 (no findings named)\n",
+      "stdout": "Recorded release v1.3.0 (no cases named)\n",
       "stderr": "",
       "exitCode": 0,
       "requests": [
@@ -1684,7 +1684,7 @@
         },
         "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
       },
-      "stdout": "Recorded release v1.3.0 (2 findings: F-12, F-14)\n",
+      "stdout": "Recorded release v1.3.0 (2 cases: F-12, F-14)\n",
       "stderr": "",
       "exitCode": 0,
       "requests": [
@@ -1746,7 +1746,7 @@
         },
         "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
       },
-      "stdout": "Recorded release v1.3.0 (no findings named)\n",
+      "stdout": "Recorded release v1.3.0 (no cases named)\n",
       "stderr": "",
       "exitCode": 0,
       "requests": [
@@ -1796,7 +1796,7 @@
         },
         "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
       },
-      "stdout": "Recorded release v1.3.0 (1 finding: F-3)\n",
+      "stdout": "Recorded release v1.3.0 (1 case: F-3)\n",
       "stderr": "",
       "exitCode": 0,
       "requests": [
@@ -1849,7 +1849,7 @@
         },
         "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
       },
-      "stdout": "Recorded release v1.3.0 (1 finding: F-3)\n",
+      "stdout": "Recorded release v1.3.0 (1 case: F-3)\n",
       "stderr": "",
       "exitCode": 0,
       "requests": [
@@ -1937,7 +1937,7 @@
         },
         "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
       },
-      "stdout": "Recorded release v1.3.0 (1 finding: F-12)\n",
+      "stdout": "Recorded release v1.3.0 (1 case: F-12)\n",
       "stderr": "",
       "exitCode": 0,
       "requests": [
@@ -1994,7 +1994,7 @@
         },
         "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
       },
-      "stdout": "Recorded release v1.3.0 (2 findings: F-2, F-5)\n",
+      "stdout": "Recorded release v1.3.0 (2 cases: F-2, F-5)\n",
       "stderr": "",
       "exitCode": 0,
       "requests": [
@@ -2054,7 +2054,7 @@
         },
         "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
       },
-      "stdout": "Recorded release v1.3.0 (3 findings: F-2, F-12, F-5)\n",
+      "stdout": "Recorded release v1.3.0 (3 cases: F-2, F-12, F-5)\n",
       "stderr": "",
       "exitCode": 0,
       "requests": [
@@ -2113,7 +2113,7 @@
         },
         "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
       },
-      "stdout": "Recorded release v1.3.0 (no findings named)\n",
+      "stdout": "Recorded release v1.3.0 (no cases named)\n",
       "stderr": "",
       "exitCode": 0,
       "requests": [
@@ -2163,7 +2163,7 @@
         },
         "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
       },
-      "stdout": "Recorded release v1.3.0 (1 finding: F-7)\n",
+      "stdout": "Recorded release v1.3.0 (1 case: F-7)\n",
       "stderr": "",
       "exitCode": 0,
       "requests": [
@@ -2216,7 +2216,7 @@
         },
         "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
       },
-      "stdout": "Recorded release v1.3.0 (50 findings: F-1, F-2, F-3, F-4, F-5, F-6, F-7, F-8, F-9, F-10, F-11, F-12, F-13, F-14, F-15, F-16, F-17, F-18, F-19, F-20, F-21, F-22, F-23, F-24, F-25, F-26, F-27, F-28, F-29, F-30, F-31, F-32, F-33, F-34, F-35, F-36, F-37, F-38, F-39, F-40, F-41, F-42, F-43, F-44, F-45, F-46, F-47, F-48, F-49, F-50)\n",
+      "stdout": "Recorded release v1.3.0 (50 cases: F-1, F-2, F-3, F-4, F-5, F-6, F-7, F-8, F-9, F-10, F-11, F-12, F-13, F-14, F-15, F-16, F-17, F-18, F-19, F-20, F-21, F-22, F-23, F-24, F-25, F-26, F-27, F-28, F-29, F-30, F-31, F-32, F-33, F-34, F-35, F-36, F-37, F-38, F-39, F-40, F-41, F-42, F-43, F-44, F-45, F-46, F-47, F-48, F-49, F-50)\n",
       "stderr": "",
       "exitCode": 0,
       "requests": [
@@ -2897,7 +2897,7 @@
         },
         "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
       },
-      "stdout": "Recorded release v1.3.0 (2 findings: F-12, F-14; 3 changes since 3f2a9c1)\n",
+      "stdout": "Recorded release v1.3.0 (2 cases: F-12, F-14; 3 changes since 3f2a9c1)\n",
       "stderr": "",
       "exitCode": 0,
       "requests": [
@@ -3149,7 +3149,7 @@
         },
         "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
       },
-      "stdout": "Recorded release v1.3.0 (2 findings: F-12, F-14; 3 changes since 3f2a9c1)\n",
+      "stdout": "Recorded release v1.3.0 (2 cases: F-12, F-14; 3 changes since 3f2a9c1)\n",
       "stderr": "",
       "exitCode": 0,
       "requests": [
@@ -3333,8 +3333,8 @@
         },
         "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
       },
-      "stdout": "Recorded release v1.3.0 (no findings named)\n",
-      "stderr": "GitHub: could not compare bbbbbbb...aaaaaaa (HTTP 404); the release is recorded without changes or finding ids from GitHub.\n",
+      "stdout": "Recorded release v1.3.0 (no cases named)\n",
+      "stderr": "GitHub: could not compare bbbbbbb...aaaaaaa (HTTP 404); the release is recorded without changes or case ids from GitHub.\n",
       "exitCode": 0,
       "requests": [
         {
@@ -3466,8 +3466,8 @@
         },
         "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
       },
-      "stdout": "Recorded release v1.3.0 (no findings named)\n",
-      "stderr": "GitHub: GITHUB_TOKEN is not set: pass it to the step (env: GITHUB_TOKEN: ${{ github.token }}); the release is recorded without changes or finding ids from GitHub.\n",
+      "stdout": "Recorded release v1.3.0 (no cases named)\n",
+      "stderr": "GitHub: GITHUB_TOKEN is not set: pass it to the step (env: GITHUB_TOKEN: ${{ github.token }}); the release is recorded without changes or case ids from GitHub.\n",
       "exitCode": 0,
       "requests": [
         {
@@ -3562,8 +3562,8 @@
         },
         "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
       },
-      "stdout": "Recorded release v1.3.0 (no findings named)\n",
-      "stderr": "GitHub: GITHUB_REPOSITORY is not set to owner/name; the release is recorded without changes or finding ids from GitHub.\n",
+      "stdout": "Recorded release v1.3.0 (no cases named)\n",
+      "stderr": "GitHub: GITHUB_REPOSITORY is not set to owner/name; the release is recorded without changes or case ids from GitHub.\n",
       "exitCode": 0,
       "requests": [
         {
@@ -3667,8 +3667,8 @@
         },
         "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
       },
-      "stdout": "Recorded release v1.3.0 (no findings named)\n",
-      "stderr": "GitHub: GITHUB_API_URL must be https: GITHUB_TOKEN travels on every request; the release is recorded without changes or finding ids from GitHub.\n",
+      "stdout": "Recorded release v1.3.0 (no cases named)\n",
+      "stderr": "GitHub: GITHUB_API_URL must be https: GITHUB_TOKEN travels on every request; the release is recorded without changes or case ids from GitHub.\n",
       "exitCode": 0,
       "requests": [
         {
@@ -3772,8 +3772,8 @@
         },
         "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
       },
-      "stdout": "Recorded release v1.3.0 (no findings named)\n",
-      "stderr": "GitHub: GITHUB_API_URL is not a valid URL; the release is recorded without changes or finding ids from GitHub.\n",
+      "stdout": "Recorded release v1.3.0 (no cases named)\n",
+      "stderr": "GitHub: GITHUB_API_URL is not a valid URL; the release is recorded without changes or case ids from GitHub.\n",
       "exitCode": 0,
       "requests": [
         {
@@ -3866,7 +3866,7 @@
         },
         "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
       },
-      "stdout": "Recorded release v1.3.0 (2 findings: F-3, F-4; 1 change from aaaaaaa alone (no earlier release found))\n",
+      "stdout": "Recorded release v1.3.0 (2 cases: F-3, F-4; 1 change from aaaaaaa alone (no earlier release found))\n",
       "stderr": "",
       "exitCode": 0,
       "requests": [
@@ -4007,7 +4007,7 @@
         },
         "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
       },
-      "stdout": "Recorded release v1.3.0 (4 findings: F-3, F-4, F-5, F-9; 1 change since bbbbbbb)\n",
+      "stdout": "Recorded release v1.3.0 (4 cases: F-3, F-4, F-5, F-9; 1 change since bbbbbbb)\n",
       "stderr": "",
       "exitCode": 0,
       "requests": [
@@ -4110,7 +4110,7 @@
         },
         "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
       },
-      "stdout": "Recorded release v1.3.0 (no findings named; 0 changes from aaaaaaa alone (no earlier release found))\n",
+      "stdout": "Recorded release v1.3.0 (no cases named; 0 changes from aaaaaaa alone (no earlier release found))\n",
       "stderr": "",
       "exitCode": 0,
       "requests": [
@@ -4204,7 +4204,7 @@
         },
         "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
       },
-      "stdout": "Recorded release v1.3.0 (1 finding: F-6; 1 change from aaaaaaa alone (no earlier release found))\n",
+      "stdout": "Recorded release v1.3.0 (1 case: F-6; 1 change from aaaaaaa alone (no earlier release found))\n",
       "stderr": "",
       "exitCode": 0,
       "requests": [
@@ -4352,7 +4352,7 @@
         },
         "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
       },
-      "stdout": "Recorded release v1.3.0 (1 finding: F-12; 1 change since bbbbbbb)\n",
+      "stdout": "Recorded release v1.3.0 (1 case: F-12; 1 change since bbbbbbb)\n",
       "stderr": "",
       "exitCode": 0,
       "requests": [
@@ -4488,7 +4488,7 @@
         },
         "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
       },
-      "stdout": "Recorded release v1.3.0 (1 finding: F-2; 1 change since bbbbbbb)\n",
+      "stdout": "Recorded release v1.3.0 (1 case: F-2; 1 change since bbbbbbb)\n",
       "stderr": "",
       "exitCode": 0,
       "requests": [
@@ -4644,7 +4644,7 @@
         },
         "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
       },
-      "stdout": "Recorded release v1.3.0 (2 findings: F-2, F-12; 1 change since bbbbbbb)\n",
+      "stdout": "Recorded release v1.3.0 (2 cases: F-2, F-12; 1 change since bbbbbbb)\n",
       "stderr": "",
       "exitCode": 0,
       "requests": [
@@ -4797,7 +4797,7 @@
         },
         "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
       },
-      "stdout": "Recorded release v1.3.0 (1 finding: F-12; 1 change since bbbbbbb)\n",
+      "stdout": "Recorded release v1.3.0 (1 case: F-12; 1 change since bbbbbbb)\n",
       "stderr": "",
       "exitCode": 0,
       "requests": [
@@ -4902,8 +4902,8 @@
         },
         "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
       },
-      "stdout": "Recorded release v1.3.0 (no findings named)\n",
-      "stderr": "GitHub: could not read commit aaaaaaa (HTTP 404); the release is recorded without changes or finding ids from GitHub.\n",
+      "stdout": "Recorded release v1.3.0 (no cases named)\n",
+      "stderr": "GitHub: could not read commit aaaaaaa (HTTP 404); the release is recorded without changes or case ids from GitHub.\n",
       "exitCode": 0,
       "requests": [
         {
@@ -4981,8 +4981,8 @@
         },
         "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
       },
-      "stdout": "Recorded release v1.3.0 (no findings named)\n",
-      "stderr": "GitHub: could not list deployments (HTTP 403); the release is recorded without changes or finding ids from GitHub.\n",
+      "stdout": "Recorded release v1.3.0 (no cases named)\n",
+      "stderr": "GitHub: could not list deployments (HTTP 403); the release is recorded without changes or case ids from GitHub.\n",
       "exitCode": 0,
       "requests": [
         {
@@ -5091,8 +5091,8 @@
         },
         "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
       },
-      "stdout": "Recorded release v1.3.0 (no findings named)\n",
-      "stderr": "GitHub: could not list pull requests of aaaaaaa (HTTP 500); the release is recorded without changes or finding ids from GitHub.\n",
+      "stdout": "Recorded release v1.3.0 (no cases named)\n",
+      "stderr": "GitHub: could not list pull requests of aaaaaaa (HTTP 500); the release is recorded without changes or case ids from GitHub.\n",
       "exitCode": 0,
       "requests": [
         {
@@ -5224,8 +5224,8 @@
         },
         "mcp": "mcpFor(release): 2xx -> result; 400 bad_request -> isError text; else the same HTTP answer"
       },
-      "stdout": "Recorded release v1.3.0 (no findings named)\n",
-      "stderr": "GitHub: could not request failed; the release is recorded without changes or finding ids from GitHub.\n",
+      "stdout": "Recorded release v1.3.0 (no cases named)\n",
+      "stderr": "GitHub: could not request failed; the release is recorded without changes or case ids from GitHub.\n",
       "exitCode": 0,
       "requests": [
         {

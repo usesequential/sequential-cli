@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.1.3
+
+- The output says "case" where it said "finding", as the product does. `sequential releases record` and
+  `sequential-release` print `Recorded release <v> (2 cases: F-12, F-13)`, `(1 case: F-12)` or `(no cases named)`, and,
+  when a GitHub read fails, `…; the release is recorded without changes or case ids from GitHub.` The help of
+  `releases record` shows the new line.
+- Flags, JSON keys and trailers are unchanged: `--finding`, `--findings all|qualified`, `finding_ids`,
+  `Sequential-Finding: F-12`, the ids (`F-12`), `--json` output, the messages Sequential sends and the exit codes.
+- `sequential-release` (`dist/release-bin.js`) matches release-cli 0.2.2, which differs from 0.2.1 only in these words.
+  The 95 recorded cases, with the new words, are still this package's test (test/release-golden.test.ts). The
+  user-agent header is `sequential-cli/0.1.3`.
+- `src/contract.json`: `cli_version` 0.1.3.
+
 ## 0.1.2
 
 - `sequential-release` (`dist/release-bin.js`, which `@usesequential/release-cli` runs) behaves exactly like

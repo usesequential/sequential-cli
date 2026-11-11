@@ -136,7 +136,7 @@ test('releases record: SEQUENTIAL_RELEASES_TOKEN first, then SEQUENTIAL_TOKEN; r
     assert.equal(await main(['releases', 'record', '--version', '4.12.0', '--finding', 'F-3'], { SEQUENTIAL_RELEASES_TOKEN: REL, SEQUENTIAL_TOKEN: TOKEN }, h.io), 0);
     assert.equal(h.seen[0].headers.authorization, `Bearer ${REL}`);
     assert.deepEqual(h.calls()[0].body!.params, { name: 'record_release', arguments: { version: '4.12.0', finding_ids: ['F-3'] } });
-    assert.deepEqual(h.out, ['recorded release 4.12.0', 'environment production, released at 2026-11-06T20:00:00.000Z, names 1 case(s)', 'Recorded release 4.12.0 (1 finding: F-3)']);
+    assert.deepEqual(h.out, ['recorded release 4.12.0', 'environment production, released at 2026-11-06T20:00:00.000Z, names 1 case(s)', 'Recorded release 4.12.0 (1 case: F-3)']);
     assert.ok(!/SECRET|secret/.test(printed(h)));
     const h2 = harness(() => answer);
     assert.equal(await main(['releases', 'record', '--version', '4.12.0'], ENV, h2.io), 0);

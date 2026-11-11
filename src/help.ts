@@ -96,9 +96,9 @@ Cases and changes from git or GitHub (use one of --range and --github-changes):
 ${COMMON_NAMED}
   With --dry-run, git and GitHub are still read; nothing is sent to Sequential.
 
-Prints the stored release, then \`Recorded release <version> (<n> findings: F-1, F-4; <m> changes since <base>)\`.
+Prints the stored release, then \`Recorded release <version> (<n> cases: F-1, F-4; <m> changes since <base>)\`.
 Token: SEQUENTIAL_RELEASES_TOKEN, else SEQUENTIAL_TOKEN, with releases:write. The old \`sequential-release\` command
-(@usesequential/release-cli) is not this command: it works exactly as release-cli 0.2.1 did (POST /api/releases,
+(@usesequential/release-cli) is not this command: it works exactly as release-cli 0.2.2 does (POST /api/releases,
 SEQUENTIAL_RELEASES_TOKEN only, exit 0 or 1).`,
     whoami: `Usage: sequential whoami [--json] [--timeout <seconds>]
 
